@@ -1,0 +1,477 @@
+/* Simple “code vibes” theme (light gray) */
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --radius: 14px;
+  --shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+/* Layout */
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.header {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.hint.small {
+  font-size: 11px;
+}
+
+.main {
+  padding-top: 12px;
+}
+
+/* Stage */
+.stage {
+  margin-top: 12px;
+  background: #0b1220; /* terminal-ish */
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  aspect-ratio: 4 / 5;
+  position: relative;
+}
+
+.stage video,
+.stage img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stage.mirror video {
+  transform: scaleX(-1);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Controls */
+.controlsGrid {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+
+.controlsGroup {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Fallback row */
+.fallbackRow {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+/* Message */
+.msg {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  background: var(--card);
+  color: var(--muted);
+  min-height: 20px;
+  font-size: 13px;
+}
+
+/* Buttons */
+button,
+.button {
+  display: inline-block;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  padding: 12px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  transition: background 0.15s ease, transform 0.08s ease;
+}
+
+button:hover,
+.button:hover {
+  background: #f9fafb;
+}
+
+button:active,
+.button:active {
+  transform: translateY(1px);
+}
+
+button:disabled,
+.button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fallbackRow .button {
+  width: 100%;
+}
+
+/* ===== Gallery (mobile-first 4-column camera-roll grid) ===== */
+.gallery {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tile {
+  margin: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+}
+
+/* Clickable thumb wrapper */
+.thumb {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+  display: block;
+}
+
+/* Square thumbnails */
+.tile img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+/* Hide captions on mobile for density */
+.tile figcaption {
+  display: none;
+}
+
+/* Footer */
+.footer {
+  margin-top: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Responsive */
+@media (min-width: 520px) {
+  .controlsGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .fallbackRow {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+
+  .fallbackRow .button {
+    width: auto;
+  }
+
+  .gallery {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (min-width: 768px) {
+  .stage {
+    aspect-ratio: 16 / 10;
+  }
+
+  .gallery {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+
+  .tile figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    background: #fff;
+  }
+}
+
+/* ===== Modal (mobile optimized) ===== */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: grid;
+  place-items: center;
+  padding: 0; /* fullscreen on mobile */
+  z-index: 9999;
+}
+
+.modalBody {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #0b1220;
+  overflow: hidden;
+}
+
+.modalImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* no cropping */
+  display: block;
+  padding: 14px;
+  user-select: none;
+  -webkit-user-drag: none;
+
+  /* ✅ prevents image from stealing taps/clicks */
+  pointer-events: none;
+}
+
+/* Close button */
+.modalClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 50px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 18px;
+  transition: transform 0.25s ease, background 0.2s ease, color 0.2s ease;
+  z-index: 5; /* ✅ above carousel */
+}
+
+.modalClose:hover {
+  transform: rotate(180deg);
+  background: transparent;
+  color: #ededed;
+}
+
+.modalClose:active {
+  transform: rotate(180deg) scale(0.95);
+}
+
+/* Arrows */
+.modalArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 50px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease, transform 0.08s ease;
+  z-index: 5; /* ✅ above carousel */
+}
+
+.modalArrow.left {
+  left: 12px;
+}
+.modalArrow.right {
+  right: 12px;
+}
+
+.modalArrow:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #2d2d2d;
+}
+
+.modalArrow:active {
+  transform: translateY(-50%) scale(0.97);
+}
+
+.modalArrow:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modalCounter {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  z-index: 5; /* ✅ above carousel */
+}
+
+/* Hide arrows on small screens (swipe is enough) */
+@media (max-width: 520px) {
+  .modalArrow {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .modalOverlay {
+    padding: 18px;
+  }
+
+  .modalBody {
+    width: min(980px, 100%);
+    height: min(820px, 90vh);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  }
+
+  .modalImg {
+    padding: 18px;
+  }
+}
+
+/* ===== iOS-style slide carousel (true outgoing + incoming) ===== */
+.carouselViewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1; /* ✅ under controls */
+}
+
+.carouselSlide {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  will-change: transform;
+  z-index: 1; /* ✅ under controls */
+}
+
+/* Incoming */
+.carouselSlide.incoming.center {
+  transform: translateX(0);
+}
+
+.carouselSlide.incoming.fromRight {
+  animation: inFromRight 260ms ease both;
+}
+
+.carouselSlide.incoming.fromLeft {
+  animation: inFromLeft 260ms ease both;
+}
+
+/* Outgoing */
+.carouselSlide.outgoing.toLeft {
+  animation: outToLeft 260ms ease both;
+}
+
+.carouselSlide.outgoing.toRight {
+  animation: outToRight 260ms ease both;
+}
+
+@keyframes inFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes inFromLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes outToLeft {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes outToRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .carouselSlide.incoming.fromRight,
+  .carouselSlide.incoming.fromLeft,
+  .carouselSlide.outgoing.toLeft,
+  .carouselSlide.outgoing.toRight {
+    animation: none;
+    transform: translateX(0);
+  }
+}
