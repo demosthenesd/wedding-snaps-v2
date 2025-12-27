@@ -5,11 +5,13 @@ import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import { google } from "googleapis";
-import fs from "fs";
 import { Readable } from "stream";
 import "dotenv/config";
 
 const app = express();
+
+/** ✅ TEST folder for now (used when creating events if driveFolderId not provided) */
+const TEST_DRIVE_FOLDER_ID = "1b9PoSR_UxREh5QuCOwR2i7hm3V5Y0XMt";
 
 app.use(
   cors({
@@ -19,7 +21,6 @@ app.use(
 );
 app.use(express.json());
 
-/** Basic API rate limit (public internet safety) */
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
@@ -28,17 +29,23 @@ app.use(
 );
 
 /** ---------- Mongo ---------- */
-if (!process.env.MONGODB_URI) {
-  throw new Error("Missing MONGODB_URI in environment");
-}
+if (!process.env.MONGODB_URI) throw new Error("Missing MONGODB_URI in environment");
 await mongoose.connect(process.env.MONGODB_URI);
 
 /** ---------- Schemas ---------- */
 const EventSchema = new mongoose.Schema({
   name: { type: String, default: "Wedding" },
+
+  // Where uploads go (Google Drive folder)
   driveFolderId: { type: String, required: true },
+
+  // Per-device window limit
   uploadLimit: { type: Number, default: 4 },
   windowHours: { type: Number, default: 24 },
+
+  // Google OAuth tokens for the Drive owner (stored per event)
+  googleRefreshToken: { type: String, default: "" },
+
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -46,38 +53,32 @@ const UploadSchema = new mongoose.Schema({
   eventId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   deviceHash: { type: String, required: true, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
-  driveFileId: { type: String },
+  driveFileId: { type: String, index: true },
 });
 
 const Event = mongoose.model("Event", EventSchema);
 const Upload = mongoose.model("Upload", UploadSchema);
 
-/** ---------- Google Drive (Service Account) ---------- */
-function loadServiceAccountCredentials() {
-  // Preferred: read from file path
-  const p = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
-  if (p && fs.existsSync(p)) {
-    const raw = fs.readFileSync(p, "utf8");
-    return JSON.parse(raw);
-  }
+/** ---------- Google OAuth ---------- */
+if (!process.env.GOOGLE_OAUTH_CLIENT_ID) throw new Error("Missing GOOGLE_OAUTH_CLIENT_ID");
+if (!process.env.GOOGLE_OAUTH_CLIENT_SECRET) throw new Error("Missing GOOGLE_OAUTH_CLIENT_SECRET");
+if (!process.env.GOOGLE_OAUTH_REDIRECT_URI) throw new Error("Missing GOOGLE_OAUTH_REDIRECT_URI");
 
-  // Optional fallback: JSON string in env
-  const json = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (json) return JSON.parse(json);
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_OAUTH_CLIENT_ID,
+  process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+  process.env.GOOGLE_OAUTH_REDIRECT_URI
+);
 
-  throw new Error(
-    "Missing Google credentials. Set GOOGLE_SERVICE_ACCOUNT_KEY_PATH to your service account JSON file path (recommended)."
+function driveForRefreshToken(refreshToken) {
+  const auth = new google.auth.OAuth2(
+    process.env.GOOGLE_OAUTH_CLIENT_ID,
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    process.env.GOOGLE_OAUTH_REDIRECT_URI
   );
+  auth.setCredentials({ refresh_token: refreshToken });
+  return google.drive({ version: "v3", auth });
 }
-
-const credentials = loadServiceAccountCredentials();
-
-const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ["https://www.googleapis.com/auth/drive.file"],
-});
-
-const drive = google.drive({ version: "v3", auth });
 
 /** ---------- Helpers ---------- */
 function sha256(str) {
@@ -92,32 +93,88 @@ function getDeviceHash(req) {
 /** Multer in-memory upload */
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB hard limit
+  limits: { fileSize: 2 * 1024 * 1024 },
 });
+
+function apiBaseFromReq(req) {
+  // Lets images load even if PUBLIC_BASE_URL not set
+  const envBase = process.env.API_PUBLIC_BASE_URL; // optional: set e.g. https://api.yourdomain.com
+  if (envBase) return envBase.replace(/\/$/, "");
+  const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
+  const host = req.headers["x-forwarded-host"] || req.get("host");
+  return `${proto}://${host}`;
+}
 
 /** ---------- Routes ---------- */
 
-app.get("/", async (_req, res) => {
-  res.json({ kamusta:true });
-});
+app.get("/", (_req, res) => res.json({ ok: true, status: "alive" }));
 
-/** Admin create event (protect later with a secret) */
+/**
+ * Create event
+ * - If driveFolderId missing, uses TEST_DRIVE_FOLDER_ID
+ */
 app.post("/events", async (req, res) => {
   const { name, driveFolderId } = req.body || {};
-  if (!driveFolderId) {
-    return res.status(400).json({ ok: false, error: "driveFolderId required" });
-  }
 
-  const ev = await Event.create({ name, driveFolderId });
+  const ev = await Event.create({
+    name: name || "Wedding",
+    driveFolderId: driveFolderId || TEST_DRIVE_FOLDER_ID,
+  });
 
   res.json({
     ok: true,
     eventId: ev._id.toString(),
     publicUrl: `${process.env.PUBLIC_BASE_URL || ""}/?e=${ev._id.toString()}`,
+    connectUrl: `${apiBaseFromReq(req)}/auth/google/start?eventId=${ev._id.toString()}`,
+    driveFolderId: ev.driveFolderId, // helpful while testing
   });
 });
 
-/** Public event config */
+/** Start OAuth for an event */
+app.get("/auth/google/start", async (req, res) => {
+  const { eventId } = req.query;
+  if (!eventId) return res.status(400).send("Missing eventId");
+
+  const ev = await Event.findById(eventId);
+  if (!ev) return res.status(404).send("Event not found");
+
+  const url = oauth2Client.generateAuthUrl({
+    access_type: "offline", // important for refresh_token
+    prompt: "consent", // ensures refresh_token is returned
+    scope: ["https://www.googleapis.com/auth/drive.file"],
+    state: ev._id.toString(), // carry eventId through callback
+  });
+
+  res.redirect(url);
+});
+
+/** OAuth callback (MAKE SURE GOOGLE_OAUTH_REDIRECT_URI points here) */
+app.get("/oauth2/callback", async (req, res) => {
+  const { code, state } = req.query;
+  if (!code || !state) return res.status(400).send("Missing code/state");
+
+  const eventId = String(state);
+  const ev = await Event.findById(eventId);
+  if (!ev) return res.status(404).send("Event not found");
+
+  const { tokens } = await oauth2Client.getToken(String(code));
+
+  if (!tokens.refresh_token) {
+    return res
+      .status(400)
+      .send(
+        "No refresh_token returned. Remove app access from your Google Account and try again (or ensure prompt=consent)."
+      );
+  }
+
+  ev.googleRefreshToken = tokens.refresh_token;
+  await ev.save();
+
+  const back = `${process.env.PUBLIC_BASE_URL || "http://localhost:5173"}/?e=${ev._id.toString()}`;
+  res.redirect(back);
+});
+
+/** Public event config (frontend uses this) */
 app.get("/events/:eventId", async (req, res) => {
   const ev = await Event.findById(req.params.eventId);
   if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
@@ -127,13 +184,97 @@ app.get("/events/:eventId", async (req, res) => {
     name: ev.name,
     uploadLimit: ev.uploadLimit,
     windowHours: ev.windowHours,
+    isDriveConnected: !!ev.googleRefreshToken,
   });
 });
 
-/** Upload */
+/**
+ * ✅ List uploads for event (for grid)
+ * Returns URLs that the frontend can put directly into <img src="...">
+ */
+app.get("/events/:eventId/uploads", async (req, res) => {
+  const ev = await Event.findById(req.params.eventId);
+  if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
+
+  // Allow listing even if not connected; it will just be empty or unusable
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit || 80)));
+
+  const uploads = await Upload.find({ eventId: ev._id })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  const base = apiBaseFromReq(req);
+
+  res.json({
+    ok: true,
+    items: uploads
+      .filter((u) => !!u.driveFileId)
+      .map((u) => ({
+        id: String(u._id),
+        driveFileId: u.driveFileId,
+        createdAt: u.createdAt,
+        // stream endpoint (below)
+        url: `${base}/events/${ev._id.toString()}/files/${u.driveFileId}`,
+      })),
+  });
+});
+
+/**
+ * ✅ Stream a Drive file as an image (used by the grid)
+ * Security: only streams if that driveFileId exists in Uploads for this event.
+ */
+app.get("/events/:eventId/files/:fileId", async (req, res) => {
+  const ev = await Event.findById(req.params.eventId);
+  if (!ev) return res.status(404).send("Event not found");
+
+  if (!ev.googleRefreshToken) return res.status(400).send("Drive not connected for this event");
+
+  const fileId = String(req.params.fileId || "");
+  if (!fileId) return res.status(400).send("Missing fileId");
+
+  const exists = await Upload.exists({ eventId: ev._id, driveFileId: fileId });
+  if (!exists) return res.status(404).send("File not found for this event");
+
+  try {
+    const drive = driveForRefreshToken(ev.googleRefreshToken);
+
+    // Stream bytes
+    const r = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    // Best effort content-type
+    const ct = r?.headers?.["content-type"] || "image/jpeg";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "public, max-age=300"); // small cache
+
+    r.data.on("error", (err) => {
+      console.error("Drive stream error:", err);
+      if (!res.headersSent) res.status(500).end("Stream error");
+      else res.end();
+    });
+
+    r.data.pipe(res);
+  } catch (err) {
+    console.error("Drive fetch error:", err?.message || err);
+    res.status(500).send("Failed to fetch file");
+  }
+});
+
+/** Upload endpoint (uploads AS the Drive owner via refresh token) */
 app.post("/events/:eventId/upload", upload.single("file"), async (req, res) => {
   const ev = await Event.findById(req.params.eventId);
   if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
+
+  if (!ev.googleRefreshToken) {
+    return res.status(400).json({
+      ok: false,
+      error: "Drive not connected for this event yet. Owner must connect Google Drive first.",
+      connectUrl: `${apiBaseFromReq(req)}/auth/google/start?eventId=${ev._id.toString()}`,
+    });
+  }
 
   const file = req.file;
   if (!file) return res.status(400).json({ ok: false, error: "Missing file" });
@@ -143,7 +284,6 @@ app.post("/events/:eventId/upload", upload.single("file"), async (req, res) => {
 
   const deviceHash = getDeviceHash(req);
 
-  // Enforce "N per windowHours" per device
   const since = new Date(Date.now() - ev.windowHours * 60 * 60 * 1000);
   const recentCount = await Upload.countDocuments({
     eventId: ev._id,
@@ -152,13 +292,10 @@ app.post("/events/:eventId/upload", upload.single("file"), async (req, res) => {
   });
 
   if (recentCount >= ev.uploadLimit) {
-    return res.status(429).json({
-      ok: false,
-      error: "Upload limit reached for this device (windowed)",
-    });
+    return res.status(429).json({ ok: false, error: "Upload limit reached for this device (windowed)" });
   }
 
-  // Upload to Drive folder
+  const drive = driveForRefreshToken(ev.googleRefreshToken);
   const stream = Readable.from(file.buffer);
 
   const driveResp = await drive.files.create({
@@ -166,22 +303,21 @@ app.post("/events/:eventId/upload", upload.single("file"), async (req, res) => {
       name: `wedding-snap-${Date.now()}.jpg`,
       parents: [ev.driveFolderId],
     },
-    media: {
-      mimeType: file.mimetype,
-      body: stream,
-    },
+    media: { mimeType: file.mimetype, body: stream },
     fields: "id",
   });
 
   const driveFileId = driveResp?.data?.id;
 
-  await Upload.create({
-    eventId: ev._id,
-    deviceHash,
-    driveFileId,
-  });
+  const uploadDoc = await Upload.create({ eventId: ev._id, deviceHash, driveFileId });
 
-  res.json({ ok: true, driveFileId });
+  res.json({
+    ok: true,
+    driveFileId,
+    uploadId: uploadDoc._id.toString(),
+    // give frontend a ready-to-use URL
+    url: `${apiBaseFromReq(req)}/events/${ev._id.toString()}/files/${driveFileId}`,
+  });
 });
 
 /** ---------- Boot ---------- */

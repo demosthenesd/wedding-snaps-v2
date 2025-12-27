@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./styles.css";
 
 const MAX_BYTES = 100_000;
@@ -6,12 +6,15 @@ const MAX_DIM = 1600;
 const SWIPE_PX = 40;
 const SLIDE_MS = 260;
 
-// ✅ Upload limit (per device) — EXPIRING (e.g. ~1 day)
-const UPLOAD_LIMIT = 4;
+// Local backend (hardcoded for now)
+const API_BASE = "http://localhost:8080";
 
-// 🔁 Expiring counter storage (localStorage still, but auto-resets after TTL)
+// Local expiring counter (UI-only; backend also enforces)
 const UPLOAD_LIMIT_STATE_KEY = "wedding_snaps_upload_limit_state_v2";
-const UPLOAD_LIMIT_TTL_MS = 24 * 60 * 60 * 1000; // 1 day
+const UPLOAD_LIMIT_TTL_MS_DEFAULT = 24 * 60 * 60 * 1000; // 1 day
+
+// Device id (sent to backend for per-device limit)
+const DEVICE_ID_KEY = "wedding_snaps_device_id_v1";
 
 function bytesToHuman(n) {
   if (!Number.isFinite(n)) return "";
@@ -68,7 +71,7 @@ async function fileToResizedJpegBlob(file) {
 }
 
 // ---------------------------
-// Expiring upload counter helpers
+// Expiring upload counter helpers (local UI)
 // ---------------------------
 function safeJsonParse(raw) {
   try {
@@ -78,7 +81,7 @@ function safeJsonParse(raw) {
   }
 }
 
-function readUploadLimitState() {
+function readUploadLimitState(ttlMs) {
   const raw = localStorage.getItem(UPLOAD_LIMIT_STATE_KEY);
   const parsed = raw ? safeJsonParse(raw) : null;
 
@@ -86,14 +89,12 @@ function readUploadLimitState() {
   const startedAt = Number(parsed?.startedAt);
   const count = Number(parsed?.count);
 
-  // If missing/corrupt/expired -> reset
   if (!Number.isFinite(startedAt) || !Number.isFinite(count) || count < 0) {
     return { count: 0, startedAt: now };
   }
-  if (now - startedAt >= UPLOAD_LIMIT_TTL_MS) {
+  if (now - startedAt >= ttlMs) {
     return { count: 0, startedAt: now };
   }
-
   return { count, startedAt };
 }
 
@@ -112,6 +113,23 @@ function msToHuman(ms) {
   return `${hours}h ${minutes}m`;
 }
 
+function getOrCreateDeviceId() {
+  const existing = localStorage.getItem(DEVICE_ID_KEY);
+  if (existing) return existing;
+
+  const id =
+    (globalThis.crypto?.randomUUID?.() ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`) + "";
+
+  localStorage.setItem(DEVICE_ID_KEY, id);
+  return id;
+}
+
+function getEventIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("e") || "";
+}
+
 export default function App() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -126,44 +144,122 @@ export default function App() {
   const [pendingUrl, setPendingUrl] = useState("");
   const [pendingSource, setPendingSource] = useState("");
 
-  // Uploaded (local UI gallery)
-  const [gallery, setGallery] = useState([]); // {id,url,sizeBytes,source}
+  // ✅ Gallery now represents SERVER images (loaded from backend)
+  // { id, url, sizeBytes?, source? }
+  const [gallery, setGallery] = useState([]);
 
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // ✅ Expiring upload limit state
-  const [{ count: uploadCount, startedAt }, setUploadState] = useState(() => readUploadLimitState());
+  // Event config from backend
+  const [eventId] = useState(() => getEventIdFromUrl());
+  const [eventName, setEventName] = useState("");
+  const [uploadLimit, setUploadLimit] = useState(4);
+  const [windowHours, setWindowHours] = useState(24);
 
-  // Persist + enforce expiry whenever state changes
+  // Drive connection state
+  const [isDriveConnected, setIsDriveConnected] = useState(false);
+  const connectUrl = useMemo(() => {
+    if (!eventId) return "";
+    return `${API_BASE}/auth/google/start?eventId=${encodeURIComponent(eventId)}`;
+  }, [eventId]);
+
+  const ttlMs = useMemo(() => Math.max(1, windowHours) * 60 * 60 * 1000, [windowHours]);
+
+  // Local expiring upload state (UI-only counter)
+  const [{ count: uploadCount, startedAt }, setUploadState] = useState(() =>
+    readUploadLimitState(UPLOAD_LIMIT_TTL_MS_DEFAULT)
+  );
+
+  // When windowHours arrives, re-check expiry window using that TTL
+  useEffect(() => {
+    const s = readUploadLimitState(ttlMs);
+    setUploadState(s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttlMs]);
+
   useEffect(() => {
     writeUploadLimitState({ count: uploadCount, startedAt });
   }, [uploadCount, startedAt]);
 
-  // Auto-expire while page is open (so it resets without refresh)
+  // Auto-expire while open
   useEffect(() => {
     const tick = () => {
       const now = Date.now();
-      if (now - startedAt >= UPLOAD_LIMIT_TTL_MS) {
+      if (now - startedAt >= ttlMs) {
         setUploadState({ count: 0, startedAt: now });
         setMessage("Upload limit reset ✅");
       }
     };
-
-    const id = setInterval(tick, 30_000); // check every 30s
+    const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
-  }, [startedAt]);
+  }, [startedAt, ttlMs]);
 
-  const uploadsLeft = Math.max(0, UPLOAD_LIMIT - uploadCount);
-  const limitReached = uploadCount >= UPLOAD_LIMIT;
+  const uploadsLeft = Math.max(0, uploadLimit - uploadCount);
+  const limitReached = uploadCount >= uploadLimit;
 
-  const resetInMs = Math.max(0, UPLOAD_LIMIT_TTL_MS - (Date.now() - startedAt));
+  const resetInMs = Math.max(0, ttlMs - (Date.now() - startedAt));
   const resetInHuman = msToHuman(resetInMs);
 
+  // Fetch event config
+  useEffect(() => {
+    const run = async () => {
+      if (!eventId) {
+        setMessage("Missing event id. Open a link like /?e=EVENT_ID");
+        return;
+      }
+
+      try {
+        const r = await fetch(`${API_BASE}/events/${eventId}`);
+        const j = await r.json();
+
+        if (!r.ok || !j?.ok) throw new Error(j?.error || `Failed to load event (${r.status})`);
+
+        setEventName(j.name || "");
+        setUploadLimit(Number.isFinite(j.uploadLimit) ? j.uploadLimit : 4);
+        setWindowHours(Number.isFinite(j.windowHours) ? j.windowHours : 24);
+        setIsDriveConnected(!!j.isDriveConnected);
+      } catch (e) {
+        console.error(e);
+        setMessage(`Could not load event config: ${e.message}`);
+      }
+    };
+
+    run();
+  }, [eventId]);
+
+  // ✅ Fetch existing uploads for the grid
+  useEffect(() => {
+    const run = async () => {
+      if (!eventId) return;
+
+      try {
+        const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=80`);
+        const j = await r.json();
+        if (!r.ok || !j?.ok) return;
+
+        const items = Array.isArray(j.items) ? j.items : [];
+        // Normalize into your UI shape
+        setGallery(
+          items.map((it) => ({
+            id: it.driveFileId || it.id,
+            url: it.url,
+            sizeBytes: null,
+            source: "server",
+          }))
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    run();
+  }, [eventId, isDriveConnected]);
+
   // ✅ Carousel modal state
-  const [modalIndex, setModalIndex] = useState(-1); // current
-  const [prevIndex, setPrevIndex] = useState(-1); // previous (for animation layer)
-  const [slideDir, setSlideDir] = useState(0); // -1 prev, +1 next
+  const [modalIndex, setModalIndex] = useState(-1);
+  const [prevIndex, setPrevIndex] = useState(-1);
+  const [slideDir, setSlideDir] = useState(0);
   const [animating, setAnimating] = useState(false);
 
   const modalOpen = modalIndex >= 0 && modalIndex < gallery.length;
@@ -219,7 +315,6 @@ export default function App() {
     startSlideTo(nextIdx, 1);
   };
 
-  // Escape + arrows
   useEffect(() => {
     if (!modalOpen) return;
 
@@ -322,7 +417,6 @@ export default function App() {
     return () => {
       stopCamera();
       if (pendingUrl) URL.revokeObjectURL(pendingUrl);
-      gallery.forEach((g) => URL.revokeObjectURL(g.url));
       if (animTimerRef.current) clearTimeout(animTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -336,7 +430,7 @@ export default function App() {
 
   const snap = async () => {
     if (limitReached) {
-      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Resets in ${resetInHuman}. 💛`);
+      setMessage(`Upload limit reached (${uploadLimit}). Resets in ${resetInHuman}. 💛`);
       return;
     }
 
@@ -391,7 +485,7 @@ export default function App() {
 
   const onFallbackFile = async (e) => {
     if (limitReached) {
-      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Resets in ${resetInHuman}. 💛`);
+      setMessage(`Upload limit reached (${uploadLimit}). Resets in ${resetInHuman}. 💛`);
       e.target.value = "";
       return;
     }
@@ -416,8 +510,18 @@ export default function App() {
   };
 
   const uploadPending = async () => {
+    if (!eventId) {
+      setMessage("Missing event id in URL (?e=...).");
+      return;
+    }
+
+    if (!isDriveConnected) {
+      setMessage("Drive not connected yet. The event owner must connect Google Drive first.");
+      return;
+    }
+
     if (limitReached) {
-      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Resets in ${resetInHuman}. 💛`);
+      setMessage(`Upload limit reached (${uploadLimit}). Resets in ${resetInHuman}. 💛`);
       return;
     }
 
@@ -430,21 +534,47 @@ export default function App() {
     setMessage("");
 
     try {
-      // TODO: replace this stub with your real upload endpoint
-      await new Promise((r) => setTimeout(r, 600));
+      const deviceId = getOrCreateDeviceId();
 
-      const uploadedUrl = pendingUrl;
-      const sizeBytes = pendingBlob.size;
-      const source = pendingSource || "unknown";
+      const form = new FormData();
+      form.append("file", pendingBlob, `snap-${Date.now()}.jpg`);
 
+      const r = await fetch(`${API_BASE}/events/${eventId}/upload`, {
+        method: "POST",
+        headers: { "X-Device-Id": deviceId },
+        body: form,
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok || !j?.ok) {
+        if (j?.connectUrl) {
+          setIsDriveConnected(false);
+          throw new Error(`${j.error}\nConnect here: ${j.connectUrl}`);
+        }
+        throw new Error(j?.error || `Upload failed (${r.status})`);
+      }
+
+      // ✅ Use the real server URL (streams from Drive)
+      const serverUrl = j.url || `${API_BASE}/events/${eventId}/files/${j.driveFileId}`;
+      const driveFileId = j.driveFileId || crypto.randomUUID();
+
+      // add to top of gallery
       setGallery((prev) => [
-        { id: crypto.randomUUID(), url: uploadedUrl, sizeBytes, source },
+        {
+          id: driveFileId,
+          url: serverUrl,
+          sizeBytes: pendingBlob.size,
+          source: pendingSource || "upload",
+        },
         ...prev,
       ]);
 
-      // ✅ consume one upload slot (within the current TTL window)
+      // consume one slot locally (UI-only)
       setUploadState((s) => ({ ...s, count: s.count + 1 }));
 
+      // cleanup pending blob url
+      if (pendingUrl) URL.revokeObjectURL(pendingUrl);
       setPendingBlob(null);
       setPendingUrl("");
       setPendingSource("");
@@ -452,16 +582,15 @@ export default function App() {
       setMessage("Uploaded ✅");
     } catch (err) {
       console.error(err);
-      setMessage("Upload failed. Please try again.");
+      setMessage(err.message || "Upload failed. Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
-  // ✅ Small reset button (testing)
+  // small reset button (testing UI)
   const resetUploadLimit = () => {
     const now = Date.now();
-    // reset counter window + count
     setUploadState({ count: 0, startedAt: now });
     setMessage("Upload limit reset (testing) ✅");
   };
@@ -477,16 +606,51 @@ export default function App() {
       <header className="header">
         <div className="badge">📸</div>
         <div>
-          <h1>Wedding Snaps</h1>
+          <h1>Wedding Snaps{eventName ? ` — ${eventName}` : ""}</h1>
           <p className="hint">
             Welcome to our wedding! Share special moments with us through your lens. Snap a selfie,
             a candid of your seatmate, or a shot of us — every perspective is precious.
           </p>
+          <p className="hint small" style={{ marginTop: 6, opacity: 0.8 }}>
+            Event: {eventId || "none"} • API: {API_BASE}
+          </p>
+
+          <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: 12,
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid var(--border)",
+                background: isDriveConnected ? "rgba(16,185,129,0.10)" : "rgba(239,68,68,0.10)",
+                fontWeight: 800,
+              }}
+            >
+              {isDriveConnected ? "Drive connected ✅" : "Drive not connected"}
+            </span>
+
+            {!isDriveConnected && eventId && (
+              <a
+                href={connectUrl}
+                style={{
+                  fontSize: 12,
+                  padding: "6px 10px",
+                  borderRadius: 10,
+                  border: "1px solid var(--border)",
+                  background: "rgba(0,0,0,0.04)",
+                  textDecoration: "none",
+                  color: "inherit",
+                  fontWeight: 800,
+                }}
+              >
+                Connect Google Drive
+              </a>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="main">
-        {/* ✅ Big upload limit counter */}
         <div
           className="uploadLimit"
           role="status"
@@ -505,19 +669,16 @@ export default function App() {
           }}
         >
           <span style={{ fontSize: 14 }}>
-            Uploads: {uploadCount} / {UPLOAD_LIMIT}
+            Uploads: {uploadCount} / {uploadLimit}
           </span>
 
-          <span style={{ fontSize: 12, opacity: 0.8 }}>
-            Resets in {resetInHuman}
-          </span>
+          <span style={{ fontSize: 12, opacity: 0.8 }}>Resets in {resetInHuman}</span>
 
           <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <span style={{ fontSize: 14, opacity: 0.85 }}>
               {limitReached ? "Limit reached" : `${uploadsLeft} left`}
             </span>
 
-            {/* 🧪 small reset button for testing */}
             <button
               type="button"
               onClick={resetUploadLimit}
@@ -538,16 +699,9 @@ export default function App() {
           </span>
         </div>
 
-        <section
-          className={`stage ${facingMode === "user" && !isDesktop ? "mirror" : ""}`}
-          aria-label="Camera stage"
-        >
+        <section className={`stage ${facingMode === "user" && !isDesktop ? "mirror" : ""}`} aria-label="Camera stage">
           <video ref={videoRef} className={pendingUrl ? "hidden" : ""} playsInline autoPlay muted />
-          <img
-            src={pendingUrl || ""}
-            className={!pendingUrl ? "hidden" : ""}
-            alt="Pending preview"
-          />
+          <img src={pendingUrl || ""} className={!pendingUrl ? "hidden" : ""} alt="Pending preview" />
           <canvas ref={canvasRef} className="hidden" />
         </section>
 
@@ -562,7 +716,11 @@ export default function App() {
           </div>
 
           <div className="controlsGroup">
-            <button onClick={uploadPending} disabled={busy || !hasPending}>
+            <button
+              onClick={uploadPending}
+              disabled={busy || !hasPending || !isDriveConnected}
+              title={!isDriveConnected ? "Event owner must connect Drive first" : "Upload"}
+            >
               ⬆️ Upload
             </button>
             <button onClick={retake} disabled={busy || !pendingBlob}>
@@ -591,7 +749,7 @@ export default function App() {
           </label>
           <span className="hint small">
             {limitReached
-              ? `Limit reached — thanks for uploading ${UPLOAD_LIMIT}! 💛 (Resets in ${resetInHuman})`
+              ? `Limit reached — thanks for uploading ${uploadLimit}! 💛 (Resets in ${resetInHuman})`
               : "Already took a photo? Upload one from your gallery here!"}
           </span>
         </div>
@@ -600,21 +758,15 @@ export default function App() {
           {busy ? "Working…" : message}
         </div>
 
-        {/* ✅ Gallery grid kept EXACTLY as you had it */}
         <section className="gallery" aria-label="Gallery">
           {gallery.map((it) => (
             <figure className="tile" key={it.id}>
-              <button
-                className="thumb"
-                type="button"
-                onClick={() => openCarouselAt(it.id)}
-                aria-label="Open carousel"
-              >
-                <img src={it.url} alt="Wedding snap" />
+              <button className="thumb" type="button" onClick={() => openCarouselAt(it.id)} aria-label="Open carousel">
+                <img src={it.url} alt="Wedding snap" loading="lazy" />
               </button>
               <figcaption>
-                <span>{it.source === "camera" ? "Live cam" : "Fallback"}</span>
-                <span>{bytesToHuman(it.sizeBytes)}</span>
+                <span>{it.source === "camera" ? "Live cam" : it.source === "fallback" ? "Fallback" : "Uploaded"}</span>
+                <span>{it.sizeBytes ? bytesToHuman(it.sizeBytes) : ""}</span>
               </figcaption>
             </figure>
           ))}
@@ -625,7 +777,6 @@ export default function App() {
         <small>Tip: If you see a black screen, ensure HTTPS and grant camera permission.</small>
       </footer>
 
-      {/* ✅ iOS-style slide carousel modal */}
       {modalOpen && current && (
         <div className="modalOverlay" role="dialog" aria-modal="true" onClick={closeModal}>
           <div
@@ -638,34 +789,20 @@ export default function App() {
               ✕
             </button>
 
-            <button
-              className="modalArrow left"
-              type="button"
-              onClick={goPrev}
-              aria-label="Previous"
-              disabled={animating}
-            >
+            <button className="modalArrow left" type="button" onClick={goPrev} aria-label="Previous" disabled={animating}>
               ‹
             </button>
-            <button
-              className="modalArrow right"
-              type="button"
-              onClick={goNext}
-              aria-label="Next"
-              disabled={animating}
-            >
+            <button className="modalArrow right" type="button" onClick={goNext} aria-label="Next" disabled={animating}>
               ›
             </button>
 
             <div className={`carouselViewport ${animating ? "animating" : ""}`}>
-              {/* outgoing layer */}
               {previous && animating && (
                 <div className={`carouselSlide outgoing ${slideDir === 1 ? "toLeft" : "toRight"}`}>
                   <img className="modalImg" src={previous.url} alt="Previous" />
                 </div>
               )}
 
-              {/* incoming/current layer */}
               <div
                 className={`carouselSlide incoming ${
                   animating ? (slideDir === 1 ? "fromRight" : "fromLeft") : "center"
