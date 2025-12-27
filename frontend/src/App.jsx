@@ -6,9 +6,12 @@ const MAX_DIM = 1600;
 const SWIPE_PX = 40;
 const SLIDE_MS = 260;
 
-// ✅ Upload limit (per device)
+// ✅ Upload limit (per device) — EXPIRING (e.g. ~1 day)
 const UPLOAD_LIMIT = 4;
-const UPLOAD_COUNT_KEY = "wedding_snaps_upload_count_v1";
+
+// 🔁 Expiring counter storage (localStorage still, but auto-resets after TTL)
+const UPLOAD_LIMIT_STATE_KEY = "wedding_snaps_upload_limit_state_v2";
+const UPLOAD_LIMIT_TTL_MS = 24 * 60 * 60 * 1000; // 1 day
 
 function bytesToHuman(n) {
   if (!Number.isFinite(n)) return "";
@@ -64,6 +67,51 @@ async function fileToResizedJpegBlob(file) {
   return blob;
 }
 
+// ---------------------------
+// Expiring upload counter helpers
+// ---------------------------
+function safeJsonParse(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function readUploadLimitState() {
+  const raw = localStorage.getItem(UPLOAD_LIMIT_STATE_KEY);
+  const parsed = raw ? safeJsonParse(raw) : null;
+
+  const now = Date.now();
+  const startedAt = Number(parsed?.startedAt);
+  const count = Number(parsed?.count);
+
+  // If missing/corrupt/expired -> reset
+  if (!Number.isFinite(startedAt) || !Number.isFinite(count) || count < 0) {
+    return { count: 0, startedAt: now };
+  }
+  if (now - startedAt >= UPLOAD_LIMIT_TTL_MS) {
+    return { count: 0, startedAt: now };
+  }
+
+  return { count, startedAt };
+}
+
+function writeUploadLimitState(state) {
+  localStorage.setItem(UPLOAD_LIMIT_STATE_KEY, JSON.stringify(state));
+}
+
+function msToHuman(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return "soon";
+  const totalSeconds = Math.ceil(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (hours <= 0) return `${minutes}m`;
+  if (minutes <= 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
 export default function App() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -84,19 +132,33 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // ✅ Upload count (persisted per device)
-  const [uploadCount, setUploadCount] = useState(() => {
-    const raw = localStorage.getItem(UPLOAD_COUNT_KEY);
-    const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-  });
+  // ✅ Expiring upload limit state
+  const [{ count: uploadCount, startedAt }, setUploadState] = useState(() => readUploadLimitState());
 
+  // Persist + enforce expiry whenever state changes
   useEffect(() => {
-    localStorage.setItem(UPLOAD_COUNT_KEY, String(uploadCount));
-  }, [uploadCount]);
+    writeUploadLimitState({ count: uploadCount, startedAt });
+  }, [uploadCount, startedAt]);
+
+  // Auto-expire while page is open (so it resets without refresh)
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now();
+      if (now - startedAt >= UPLOAD_LIMIT_TTL_MS) {
+        setUploadState({ count: 0, startedAt: now });
+        setMessage("Upload limit reset ✅");
+      }
+    };
+
+    const id = setInterval(tick, 30_000); // check every 30s
+    return () => clearInterval(id);
+  }, [startedAt]);
 
   const uploadsLeft = Math.max(0, UPLOAD_LIMIT - uploadCount);
   const limitReached = uploadCount >= UPLOAD_LIMIT;
+
+  const resetInMs = Math.max(0, UPLOAD_LIMIT_TTL_MS - (Date.now() - startedAt));
+  const resetInHuman = msToHuman(resetInMs);
 
   // ✅ Carousel modal state
   const [modalIndex, setModalIndex] = useState(-1); // current
@@ -274,7 +336,7 @@ export default function App() {
 
   const snap = async () => {
     if (limitReached) {
-      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Thanks for sharing! 💛`);
+      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Resets in ${resetInHuman}. 💛`);
       return;
     }
 
@@ -329,7 +391,7 @@ export default function App() {
 
   const onFallbackFile = async (e) => {
     if (limitReached) {
-      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Thanks for sharing! 💛`);
+      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Resets in ${resetInHuman}. 💛`);
       e.target.value = "";
       return;
     }
@@ -355,7 +417,7 @@ export default function App() {
 
   const uploadPending = async () => {
     if (limitReached) {
-      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Thanks for sharing! 💛`);
+      setMessage(`Upload limit reached (${UPLOAD_LIMIT}). Resets in ${resetInHuman}. 💛`);
       return;
     }
 
@@ -380,8 +442,8 @@ export default function App() {
         ...prev,
       ]);
 
-      // ✅ consume one upload slot
-      setUploadCount((c) => c + 1);
+      // ✅ consume one upload slot (within the current TTL window)
+      setUploadState((s) => ({ ...s, count: s.count + 1 }));
 
       setPendingBlob(null);
       setPendingUrl("");
@@ -394,6 +456,14 @@ export default function App() {
     } finally {
       setBusy(false);
     }
+  };
+
+  // ✅ Small reset button (testing)
+  const resetUploadLimit = () => {
+    const now = Date.now();
+    // reset counter window + count
+    setUploadState({ count: 0, startedAt: now });
+    setMessage("Upload limit reset (testing) ✅");
   };
 
   const canSnap = isCameraOn && !pendingUrl && !busy && !limitReached;
@@ -437,8 +507,34 @@ export default function App() {
           <span style={{ fontSize: 14 }}>
             Uploads: {uploadCount} / {UPLOAD_LIMIT}
           </span>
-          <span style={{ fontSize: 14, opacity: 0.85 }}>
-            {limitReached ? "Limit reached" : `${uploadsLeft} left`}
+
+          <span style={{ fontSize: 12, opacity: 0.8 }}>
+            Resets in {resetInHuman}
+          </span>
+
+          <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 14, opacity: 0.85 }}>
+              {limitReached ? "Limit reached" : `${uploadsLeft} left`}
+            </span>
+
+            {/* 🧪 small reset button for testing */}
+            <button
+              type="button"
+              onClick={resetUploadLimit}
+              disabled={busy}
+              style={{
+                fontSize: 12,
+                padding: "6px 8px",
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                background: "rgba(0,0,0,0.04)",
+                cursor: busy ? "not-allowed" : "pointer",
+              }}
+              title="Testing: reset upload limit"
+              aria-label="Reset upload limit (testing)"
+            >
+              reset
+            </button>
           </span>
         </div>
 
@@ -447,7 +543,11 @@ export default function App() {
           aria-label="Camera stage"
         >
           <video ref={videoRef} className={pendingUrl ? "hidden" : ""} playsInline autoPlay muted />
-          <img src={pendingUrl || ""} className={!pendingUrl ? "hidden" : ""} alt="Pending preview" />
+          <img
+            src={pendingUrl || ""}
+            className={!pendingUrl ? "hidden" : ""}
+            alt="Pending preview"
+          />
           <canvas ref={canvasRef} className="hidden" />
         </section>
 
@@ -491,8 +591,8 @@ export default function App() {
           </label>
           <span className="hint small">
             {limitReached
-              ? `Limit reached — thanks for uploading ${UPLOAD_LIMIT}! 💛`
-              : "   Already took a photo? Upload one from your gallery here!"}
+              ? `Limit reached — thanks for uploading ${UPLOAD_LIMIT}! 💛 (Resets in ${resetInHuman})`
+              : "Already took a photo? Upload one from your gallery here!"}
           </span>
         </div>
 
