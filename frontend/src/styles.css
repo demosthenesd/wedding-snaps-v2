@@ -475,3 +475,91 @@ button:disabled,
     transform: translateX(0);
   }
 }
+/* --- Create Event page bits --- */
+.ghostBtn {
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.formCard,
+.successCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.field {
+  display: block;
+  margin-top: 12px;
+}
+
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 900;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  background: #fff;
+}
+
+.formActions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.successGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 700px) {
+  .successGrid {
+    grid-template-columns: 1.4fr 0.6fr;
+    align-items: start;
+  }
+}
+
+.linkRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.linkRow .input {
+  flex: 1;
+}
+
+.qrBox {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.qrBox img {
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}

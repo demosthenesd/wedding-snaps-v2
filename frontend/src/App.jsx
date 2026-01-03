@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import "./styles.css";
 
 const MAX_BYTES = 100_000;
@@ -118,8 +119,7 @@ function getOrCreateDeviceId() {
   if (existing) return existing;
 
   const id =
-    (globalThis.crypto?.randomUUID?.() ||
-      `${Date.now()}-${Math.random().toString(16).slice(2)}`) + "";
+    (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`) + "";
 
   localStorage.setItem(DEVICE_ID_KEY, id);
   return id;
@@ -130,7 +130,201 @@ function getEventIdFromUrl() {
   return params.get("e") || "";
 }
 
-export default function App() {
+function isCreateRoute() {
+  return window.location.hash === "#/create";
+}
+
+function goCreateRoute() {
+  window.location.hash = "#/create";
+}
+
+function goEventRoute(eventId) {
+  // set query param and clear hash
+  const url = new URL(window.location.href);
+  url.hash = "";
+  url.searchParams.set("e", eventId);
+  window.location.href = url.toString();
+}
+
+// ---------------------------
+// Create Event Page
+// ---------------------------
+function CreateEventPage() {
+  const [name, setName] = useState("");
+  const [driveFolderId, setDriveFolderId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const [success, setSuccess] = useState(false);
+  const [eventId, setEventId] = useState("");
+  const [joinUrl, setJoinUrl] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
+
+  const canSubmit = name.trim().length > 1 && driveFolderId.trim().length > 5 && !busy;
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      // Expected backend contract:
+      // POST /events { name, driveFolderId }
+      // -> { ok: true, eventId } OR { ok: true, id } (handled below)
+      const r = await fetch(`${API_BASE}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          driveFolderId: driveFolderId.trim(),
+        }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || `Create failed (${r.status})`);
+
+      const id = j.eventId || j.id;
+      if (!id) throw new Error("Backend did not return eventId.");
+
+      const origin = window.location.origin;
+      const url = `${origin}/?e=${encodeURIComponent(id)}`;
+
+      setEventId(id);
+      setJoinUrl(url);
+
+      const qr = await QRCode.toDataURL(url, {
+        margin: 1,
+        width: 280,
+        errorCorrectionLevel: "M",
+      });
+      setQrDataUrl(qr);
+
+      setSuccess(true);
+      setMessage("Success ✅ Event created.");
+    } catch (err) {
+      console.error(err);
+      setMessage(err.message || "Could not create event.");
+      setSuccess(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      setMessage("Link copied ✅");
+    } catch {
+      setMessage("Couldn’t copy automatically — select and copy the link.");
+    }
+  };
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div className="badge">✨</div>
+        <div style={{ flex: 1 }}>
+          <h1>Create event</h1>
+          <p className="hint">Set up an event link guests can open to upload wedding snaps.</p>
+
+          <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button type="button" className="ghostBtn" onClick={() => (window.location.hash = "")}>
+              ← Back
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="main">
+        {!success ? (
+          <form className="formCard" onSubmit={onSubmit}>
+            <label className="field">
+              <span className="label">Event name</span>
+              <input
+                className="input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Windy & Demosthenes Wedding"
+                autoComplete="off"
+              />
+            </label>
+
+            <label className="field">
+              <span className="label">Google Drive Folder ID</span>
+              <input
+                className="input"
+                value={driveFolderId}
+                onChange={(e) => setDriveFolderId(e.target.value)}
+                placeholder="Paste the folder ID (from the URL)"
+                autoComplete="off"
+              />
+              <span className="hint small" style={{ marginTop: 6 }}>
+                Tip: In Drive, open the folder — the ID is the long string after <b>/folders/</b> in the URL.
+              </span>
+            </label>
+
+            <div className="formActions">
+              <button type="submit" disabled={!canSubmit}>
+                {busy ? "Creating…" : "Create event"}
+              </button>
+            </div>
+
+            <div className="msg" role="status" aria-live="polite">
+              {message}
+            </div>
+          </form>
+        ) : (
+          <section className="successCard">
+            <h2 style={{ margin: 0 }}>Success! 🎉</h2>
+            <p className="hint" style={{ marginTop: 6 }}>
+              Your event is ready. Share this link or QR code with guests.
+            </p>
+
+            <div className="successGrid">
+              <div>
+                <div className="label">Event link</div>
+                <div className="linkRow">
+                  <input className="input" value={joinUrl} readOnly />
+                  <button type="button" onClick={copyLink}>
+                    Copy
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button type="button" onClick={() => goEventRoute(eventId)}>
+                    Go to event
+                  </button>
+                  <button type="button" className="ghostBtn" onClick={() => goCreateRoute()}>
+                    Create another
+                  </button>
+                </div>
+              </div>
+
+              <div className="qrBox" aria-label="QR code">
+                {qrDataUrl ? <img src={qrDataUrl} alt="Event QR code" /> : <div className="hint">Generating QR…</div>}
+              </div>
+            </div>
+
+            <div className="msg" role="status" aria-live="polite">
+              {message}
+            </div>
+          </section>
+        )}
+      </main>
+
+      <footer className="footer">
+        <small>Note: Your backend must support POST {API_BASE}/events.</small>
+      </footer>
+    </div>
+  );
+}
+
+// ---------------------------
+// Main Event Page (your existing app)
+// ---------------------------
+function EventApp() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -205,7 +399,7 @@ export default function App() {
   useEffect(() => {
     const run = async () => {
       if (!eventId) {
-        setMessage("Missing event id. Open a link like /?e=EVENT_ID");
+        setMessage("Missing event id. Open a link like /?e=EVENT_ID — or create one.");
         return;
       }
 
@@ -239,7 +433,6 @@ export default function App() {
         if (!r.ok || !j?.ok) return;
 
         const items = Array.isArray(j.items) ? j.items : [];
-        // Normalize into your UI shape
         setGallery(
           items.map((it) => ({
             id: it.driveFileId || it.id,
@@ -411,7 +604,7 @@ export default function App() {
     if (navigator?.mediaDevices?.getUserMedia) {
       startCamera(initialMode);
     } else {
-      setMessage("Live camera preview not supported. Use the fallback Open Camera.");
+      setMessage("Live camera preview not supported. Use the fallback Open gallery.");
     }
 
     return () => {
@@ -555,11 +748,9 @@ export default function App() {
         throw new Error(j?.error || `Upload failed (${r.status})`);
       }
 
-      // ✅ Use the real server URL (streams from Drive)
       const serverUrl = j.url || `${API_BASE}/events/${eventId}/files/${j.driveFileId}`;
       const driveFileId = j.driveFileId || crypto.randomUUID();
 
-      // add to top of gallery
       setGallery((prev) => [
         {
           id: driveFileId,
@@ -570,10 +761,8 @@ export default function App() {
         ...prev,
       ]);
 
-      // consume one slot locally (UI-only)
       setUploadState((s) => ({ ...s, count: s.count + 1 }));
 
-      // cleanup pending blob url
       if (pendingUrl) URL.revokeObjectURL(pendingUrl);
       setPendingBlob(null);
       setPendingUrl("");
@@ -588,7 +777,6 @@ export default function App() {
     }
   };
 
-  // small reset button (testing UI)
   const resetUploadLimit = () => {
     const now = Date.now();
     setUploadState({ count: 0, startedAt: now });
@@ -605,12 +793,18 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="badge">📸</div>
-        <div>
-          <h1>Wedding Snaps{eventName ? ` — ${eventName}` : ""}</h1>
-          <p className="hint">
-            Welcome to our wedding! Share special moments with us through your lens. Snap a selfie,
-            a candid of your seatmate, or a shot of us — every perspective is precious.
-          </p>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <h1>Wedding Snaps{eventName ? ` — ${eventName}` : ""}</h1>
+              <p className="hint">
+                Welcome to our wedding! Share special moments with us through your lens. Snap a selfie,
+                a candid of your seatmate, or a shot of us — every perspective is precious.
+              </p>
+            </div>
+
+          </div>
+
           <p className="hint small" style={{ marginTop: 6, opacity: 0.8 }}>
             Event: {eventId || "none"} • API: {API_BASE}
           </p>
@@ -675,9 +869,7 @@ export default function App() {
           <span style={{ fontSize: 12, opacity: 0.8 }}>Resets in {resetInHuman}</span>
 
           <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 14, opacity: 0.85 }}>
-              {limitReached ? "Limit reached" : `${uploadsLeft} left`}
-            </span>
+            <span style={{ fontSize: 14, opacity: 0.85 }}>{limitReached ? "Limit reached" : `${uploadsLeft} left`}</span>
 
             <button
               type="button"
@@ -820,4 +1012,68 @@ export default function App() {
       )}
     </div>
   );
+}
+
+export default function App() {
+  const [route, setRoute] = useState(() => (isCreateRoute() ? "create" : "event"));
+  const [eventId, setEventId] = useState(() => getEventIdFromUrl());
+
+  useEffect(() => {
+    const sync = () => {
+      setRoute(isCreateRoute() ? "create" : "event");
+      setEventId(getEventIdFromUrl());
+    };
+    window.addEventListener("hashchange", sync);
+    window.addEventListener("popstate", sync);
+
+    // if you change search params via location.href, popstate may not fire in all cases,
+    // so we also sync once on mount.
+    sync();
+
+    return () => {
+      window.removeEventListener("hashchange", sync);
+      window.removeEventListener("popstate", sync);
+    };
+  }, []);
+
+  // 1) Create route always wins
+  if (route === "create") return <CreateEventPage />;
+
+  // 2) No ?e= in URL -> Landing page (NO camera, NO gallery)
+  if (!eventId) {
+    return (
+      <div className="app">
+        <header className="header">
+          <div className="badge">📸</div>
+          <div style={{ flex: 1 }}>
+            <h1>Wedding Snaps</h1>
+            <p className="hint">
+              Create an event first, then share the link/QR code with guests so they can upload photos.
+            </p>
+
+            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button type="button" onClick={goCreateRoute} className="ghostBtn">
+                ➕ Create event
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="main">
+          <div className="formCard" style={{ marginTop: 12 }}>
+            <div className="hint">
+              If you already have an event link, open it directly (it will look like <b>/?e=EVENT_ID</b>).
+            </div>
+          </div>
+        </main>
+
+        <footer className="footer">
+          <small>Tip: Once you have the link, print the QR code and place it on tables.</small>
+        </footer>
+      </div>
+    );
+  }
+
+  // 3) Has ?e= -> show event experience (camera + grid)
+  return <EventApp key={eventId} />;
 }
