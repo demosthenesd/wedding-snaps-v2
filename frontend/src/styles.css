@@ -1,565 +1,326 @@
-/* Simple “code vibes” theme (light gray) */
+/* ===============================
+   Eternal Snaps – Clean CSS
+================================ */
+
+/* Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap");
+
+/* ---------- Design Tokens ---------- */
+
 :root {
-  --bg: #f5f6f8;
+  --bg: #faf9f6;
   --card: #ffffff;
-  --text: #111827;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --radius: 14px;
-  --shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+  --ink: #4a3f35;
+  --muted: #a89f91;
+  --border: #e5e1d8;
+  --gold: #d4af37;
 }
+
+/* ---------- Reset ---------- */
 
 * {
   box-sizing: border-box;
 }
 
-html,
 body {
-  height: 100%;
   margin: 0;
-}
-
-body {
   background: var(--bg);
-  color: var(--text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--ink);
 }
 
-/* Layout */
-.app {
-  max-width: 720px;
+/* ---------- Album Shell ---------- */
+
+.album {
+  min-height: 100vh;
+  max-width: 420px;
   margin: 0 auto;
-  padding: 16px;
+  background: var(--bg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
 }
 
-.header {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  box-shadow: var(--shadow);
+/* ---------- Header ---------- */
+
+.album-header {
+  padding: 24px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(6px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-h1 {
-  margin: 0 0 6px;
-  font-size: 20px;
+.brand {
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
-.hint {
+.brand-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 30px;
+  font-weight: 700;
   margin: 0;
+}
+
+.brand-subtitle {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-top: 4px;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
 }
 
-.hint.small {
+/* ---------- Footer ---------- */
+
+.album-footer {
+  padding: 12px;
+  text-align: center;
   font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
 }
 
-.main {
-  padding-top: 12px;
+/* ---------- Tabs ---------- */
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: white;
 }
 
-/* Stage */
-.stage {
-  margin-top: 12px;
-  background: #0b1220; /* terminal-ish */
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  aspect-ratio: 4 / 5;
+.tab {
+  flex: 1;
+  padding: 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  background: none;
+  border: none;
+  color: var(--muted);
   position: relative;
+  cursor: pointer;
 }
 
-.stage video,
-.stage img {
+.tab.active {
+  color: var(--ink);
+}
+
+.tab-underline {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--gold);
+}
+
+/* ---------- Personal Grid ---------- */
+
+.personal-grid {
+  padding: 24px 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+/* ---------- Slots ---------- */
+
+.slot {
+  aspect-ratio: 3 / 4;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* Filled */
+.slot.filled {
+  position: relative;
+  overflow: hidden;
+}
+
+.slot.filled img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.stage.mirror video {
-  transform: scaleX(-1);
-}
-
-.hidden {
-  display: none !important;
-}
-
-/* Controls */
-.controlsGrid {
-  margin-top: 12px;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr;
-}
-
-.controlsGroup {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr 1fr;
-}
-
-/* Fallback row */
-.fallbackRow {
-  margin-top: 12px;
-  display: grid;
-  gap: 10px;
-}
-
-/* Message */
-.msg {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px dashed var(--border);
-  background: var(--card);
+/* Empty */
+.slot.empty {
+  border: 2px dashed var(--border);
   color: var(--muted);
-  min-height: 20px;
-  font-size: 13px;
 }
 
-/* Buttons */
-button,
-.button {
-  display: inline-block;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text);
-  padding: 12px 12px;
-  border-radius: 12px;
+/* Capture */
+.slot.capture {
+  border-color: var(--gold);
+  background: #fffbf2;
+  color: var(--gold);
   cursor: pointer;
-  font-weight: 700;
-  font-size: 13px;
-  text-align: center;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
-  transition: background 0.15s ease, transform 0.08s ease;
 }
 
-button:hover,
-.button:hover {
-  background: #f9fafb;
-}
-
-button:active,
-.button:active {
-  transform: translateY(1px);
-}
-
-button:disabled,
-.button.disabled {
+/* Locked */
+.slot.locked {
   opacity: 0.5;
-  cursor: not-allowed;
 }
 
-.fallbackRow .button {
-  width: 100%;
+.slot-icon {
+  font-size: 22px;
 }
 
-/* ===== Gallery (mobile-first 4-column camera-roll grid) ===== */
-.gallery {
-  margin-top: 14px;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
+/* ---------- Delete Button ---------- */
 
-.tile {
-  margin: 0;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
-}
-
-/* Clickable thumb wrapper */
-.thumb {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  width: 100%;
-  display: block;
-}
-
-/* Square thumbnails */
-.tile img {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  display: block;
-}
-
-/* Hide captions on mobile for density */
-.tile figcaption {
-  display: none;
-}
-
-/* Footer */
-.footer {
-  margin-top: 16px;
-  text-align: center;
-  color: var(--muted);
+.delete-btn {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: white;
   font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 2;
 }
 
-/* Responsive */
-@media (min-width: 520px) {
-  .controlsGrid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .fallbackRow {
-    grid-template-columns: auto 1fr;
-    align-items: center;
-  }
-
-  .fallbackRow .button {
-    width: auto;
-  }
-
-  .gallery {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 10px;
-  }
+.slot.filled:hover .delete-btn {
+  opacity: 1;
 }
 
-@media (min-width: 768px) {
-  .stage {
-    aspect-ratio: 16 / 10;
-  }
-
-  .gallery {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-  }
-
-  .tile figcaption {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 8px;
-    font-size: 11px;
-    color: var(--muted);
-    border-top: 1px solid var(--border);
-    background: #fff;
-  }
+.delete-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
 }
 
-/* ===== Modal (mobile optimized) ===== */
-.modalOverlay {
+/* ---------- Buttons ---------- */
+
+.pill-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: white;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ---------- QR Modal ---------- */
+
+.qrModal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  display: grid;
-  place-items: center;
-  padding: 0; /* fullscreen on mobile */
-  z-index: 9999;
-}
-
-.modalBody {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: #0b1220;
-  overflow: hidden;
-}
-
-.modalImg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain; /* no cropping */
-  display: block;
-  padding: 14px;
-  user-select: none;
-  -webkit-user-drag: none;
-
-  /* ✅ prevents image from stealing taps/clicks */
-  pointer-events: none;
-}
-
-/* Close button */
-.modalClose {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 44px;
-  height: 50px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-  cursor: pointer;
-  font-weight: 900;
-  font-size: 18px;
-  transition: transform 0.25s ease, background 0.2s ease, color 0.2s ease;
-  z-index: 5; /* ✅ above carousel */
-}
-
-.modalClose:hover {
-  transform: rotate(180deg);
-  background: transparent;
-  color: #ededed;
-}
-
-.modalClose:active {
-  transform: rotate(180deg) scale(0.95);
-}
-
-/* Arrows */
-.modalArrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 50px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-  cursor: pointer;
-  font-weight: 900;
-  font-size: 22px;
-  display: grid;
-  place-items: center;
-  transition: background 0.15s ease, transform 0.08s ease;
-  z-index: 5; /* ✅ above carousel */
-}
-
-.modalArrow.left {
-  left: 12px;
-}
-.modalArrow.right {
-  right: 12px;
-}
-
-.modalArrow:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #2d2d2d;
-}
-
-.modalArrow:active {
-  transform: translateY(-50%) scale(0.97);
-}
-
-.modalArrow:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.modalCounter {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  z-index: 5; /* ✅ above carousel */
-}
-
-/* Hide arrows on small screens (swipe is enough) */
-@media (max-width: 520px) {
-  .modalArrow {
-    display: none;
-  }
-}
-
-@media (min-width: 768px) {
-  .modalOverlay {
-    padding: 18px;
-  }
-
-  .modalBody {
-    width: min(980px, 100%);
-    height: min(820px, 90vh);
-    border-radius: 14px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
-  }
-
-  .modalImg {
-    padding: 18px;
-  }
-}
-
-/* ===== iOS-style slide carousel (true outgoing + incoming) ===== */
-.carouselViewport {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  z-index: 1; /* ✅ under controls */
-}
-
-.carouselSlide {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  will-change: transform;
-  z-index: 1; /* ✅ under controls */
-}
-
-/* Incoming */
-.carouselSlide.incoming.center {
-  transform: translateX(0);
-}
-
-.carouselSlide.incoming.fromRight {
-  animation: inFromRight 260ms ease both;
-}
-
-.carouselSlide.incoming.fromLeft {
-  animation: inFromLeft 260ms ease both;
-}
-
-/* Outgoing */
-.carouselSlide.outgoing.toLeft {
-  animation: outToLeft 260ms ease both;
-}
-
-.carouselSlide.outgoing.toRight {
-  animation: outToRight 260ms ease both;
-}
-
-@keyframes inFromRight {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes inFromLeft {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes outToLeft {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100%);
-  }
-}
-
-@keyframes outToRight {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .carouselSlide.incoming.fromRight,
-  .carouselSlide.incoming.fromLeft,
-  .carouselSlide.outgoing.toLeft,
-  .carouselSlide.outgoing.toRight {
-    animation: none;
-    transform: translateX(0);
-  }
-}
-/* --- Create Event page bits --- */
-.ghostBtn {
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.formCard,
-.successCard {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 14px;
-}
-
-.field {
-  display: block;
-  margin-top: 12px;
-}
-
-.label {
-  display: block;
-  font-size: 12px;
-  font-weight: 900;
-  opacity: 0.85;
-  margin-bottom: 6px;
-}
-
-.input {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  font: inherit;
-  background: #fff;
-}
-
-.formActions {
-  margin-top: 12px;
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.successGrid {
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-@media (min-width: 700px) {
-  .successGrid {
-    grid-template-columns: 1.4fr 0.6fr;
-    align-items: start;
-  }
-}
-
-.linkRow {
-  display: flex;
-  gap: 10px;
-  margin-top: 6px;
   align-items: center;
+  justify-content: center;
+  z-index: 200;
 }
 
-.linkRow .input {
+.qrCard {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  width: 90%;
+  max-width: 320px;
+  text-align: center;
+}
+
+.qrTitle {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 22px;
+  margin-bottom: 12px;
+}
+
+.qrUrl {
+  font-size: 10px;
+  word-break: break-all;
+  color: var(--muted);
+  margin: 8px 0;
+}
+
+/* ---------- Camera Modal (ACTIVE) ---------- */
+
+.camera-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: black;
+  display: flex;
+  flex-direction: column;
+}
+
+.camera-video {
   flex: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.qrBox {
-  border: 1px dashed var(--border);
-  border-radius: 16px;
+.camera-close {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.camera-filters {
+  display: flex;
+  gap: 12px;
   padding: 12px;
-  display: grid;
-  place-items: center;
-  min-height: 240px;
-  background: rgba(0, 0, 0, 0.02);
+  overflow-x: auto;
+  background: rgba(0, 0, 0, 0.85);
 }
 
-.qrBox img {
-  max-width: 100%;
-  height: auto;
-  image-rendering: pixelated;
+.camera-filters button {
+  background: none;
+  border: 2px solid transparent;
+  color: white;
+  font-size: 10px;
+  padding: 6px;
+  cursor: pointer;
+}
+
+.camera-filters button.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.camera-controls {
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.camera-controls button {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid var(--gold);
+  background: white;
+  cursor: pointer;
 }
