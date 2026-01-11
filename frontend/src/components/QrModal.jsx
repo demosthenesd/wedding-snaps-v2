@@ -20,9 +20,9 @@ export default function QrModal({ url, onClose }) {
 
   return (
     <div className="qrModal">
-      <div className="qrCard">
+      <div className="qrCard panel-card">
         <div className="qrHeader">
-          <p className="qrEyebrow">Share the moment</p>
+          <p className="qrEyebrow eyebrow">Share the moment</p>
           <h3 className="qrTitle">Invite your guests</h3>
           <p className="qrSubtitle">
             Scan or share the link so everyone can upload to your wedding stream.

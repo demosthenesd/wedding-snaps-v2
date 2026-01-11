@@ -46,9 +46,9 @@ export default function Landing() {
   return (
     <>
       <div className="landing">
-        <section className="landing-card">
+        <section className="landing-card panel-card">
           <div className="landing-header">
-            <p className="landing-eyebrow">Create event</p>
+            <p className="landing-eyebrow eyebrow">Create event</p>
             <h2 className="landing-title">Capture your behind-the-scenes!</h2>
             <p className="landing-subtitle">
               Set up a shared gallery and invite guests to upload their favorite
