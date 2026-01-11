@@ -165,6 +165,7 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
   const [myUploads, setMyUploads] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [commentDrafts, setCommentDrafts] = useState({});
   const pickerRef = useRef(null);
 
   const fetchMine = async () => {
@@ -178,6 +179,14 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
   useEffect(() => {
     fetchMine();
   }, [eventId]);
+
+  useEffect(() => {
+    const nextDrafts = {};
+    myUploads.forEach((upload) => {
+      nextDrafts[upload.id] = upload.comment || "";
+    });
+    setCommentDrafts(nextDrafts);
+  }, [myUploads]);
 
   const uploadFile = async (file, { manageState = true } = {}) => {
     if (manageState) setIsUploading(true);
@@ -242,6 +251,28 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
     }
   };
 
+  const updateComment = async (uploadId, comment) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/events/${eventId}/uploads/${uploadId}/comment`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Device-Id": getDeviceId(),
+          },
+          body: JSON.stringify({ comment }),
+        }
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      fetchMine();
+    } catch (err) {
+      console.error(err);
+      alert("Comment update failed");
+    }
+  };
+
   return (
     <section className="personal-grid">
       {showCamera && (
@@ -291,20 +322,47 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
           const p = myUploads[i];
 
           if (p) {
+            const draft = commentDrafts[p.id] ?? "";
+            const trimmed = draft.trim();
+            const saved = (p.comment || "").trim();
+            const canSave = trimmed.length > 0 && trimmed !== saved;
             return (
               <div key={p.id} className="slot filled">
-                <img src={p.url} alt="" />
-
-                <button
-                  className="delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(p.id);
-                  }}
-                  title="Delete photo"
-                >
-                  X
-                </button>
+                <div className="slot-image">
+                  <img src={p.url} alt="" />
+                  <button
+                    className="delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(p.id);
+                    }}
+                    title="Delete photo"
+                  >
+                    X
+                  </button>
+                </div>
+                <div className="slot-comment">
+                  <textarea
+                    rows={2}
+                    placeholder="Write a comment"
+                    value={draft}
+                    onChange={(e) =>
+                      setCommentDrafts((prev) => ({
+                        ...prev,
+                        [p.id]: e.target.value,
+                      }))
+                    }
+                  />
+                  {canSave && (
+                    <button
+                      type="button"
+                      className="comment-save"
+                      onClick={() => updateComment(p.id, trimmed)}
+                    >
+                      Save
+                    </button>
+                  )}
+                </div>
               </div>
             );
           }

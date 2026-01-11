@@ -10,6 +10,7 @@ export default function StreamTab({ eventId, isActive }) {
   const [latestSeenAt, setLatestSeenAt] = useState(null);
   const [latestCount, setLatestCount] = useState(0);
   const [streamLoaded, setStreamLoaded] = useState(false);
+  const [activeTimeId, setActiveTimeId] = useState(null);
 
   const fetchAll = async () => {
     const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`);
@@ -79,36 +80,70 @@ export default function StreamTab({ eventId, isActive }) {
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        {allUploads.map((photo) => (
-          <div
-            key={photo.id}
-            style={{
-              background: "white",
-              borderRadius: 20,
-              overflow: "hidden",
-              border: "1px solid var(--border)",
-            }}
-          >
-            <div style={{ aspectRatio: "1 / 1" }}>
-              <img
-                src={photo.url}
-                alt=""
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
+        {allUploads.map((photo) => {
+          const showTime = activeTimeId === photo.id;
+          return (
+            <div
+              key={photo.id}
+              style={{
+                background: "white",
+                borderRadius: 20,
+                overflow: "hidden",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <div
+                className={`stream-photo${showTime ? " show-time" : ""}`}
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  setActiveTimeId((prev) =>
+                    prev === photo.id ? null : photo.id
+                  )
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActiveTimeId((prev) =>
+                      prev === photo.id ? null : photo.id
+                    );
+                  }
                 }}
-              />
-            </div>
-            {photo.uploaderName && (
-              <div className="photo-meta">
-                <span className="photo-name">{photo.uploaderName}</span>
-                <span className="photo-label">uploaded</span>
+              >
+                {photo.createdAt && (
+                  <div className="photo-time-pill">
+                    {new Date(photo.createdAt).toLocaleString([], {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
+                  </div>
+                )}
+                <img
+                  src={photo.url}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
               </div>
-            )}
-          </div>
-        ))}
+              {photo.uploaderName && (
+                <div className="photo-meta">
+                  <span className="photo-name">{photo.uploaderName}</span>
+                  <span className="photo-label">uploaded</span>
+                </div>
+              )}
+              {photo.comment && (
+                <div className="photo-comment">{photo.comment}</div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

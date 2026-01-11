@@ -41,6 +41,12 @@ body {
   flex-direction: column;
 }
 
+.album-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ---------- Header ---------- */
 
 .album-header {
@@ -123,13 +129,17 @@ body {
 /* ---------- Personal Grid ---------- */
 
 .personal-grid {
-  padding: 24px 20px;
+  padding: 18px 8px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: 9px;
+  flex: 1;
 }
 
 /* ---------- Slots ---------- */
@@ -150,14 +160,62 @@ body {
 /* Filled */
 .slot.filled {
   position: relative;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
   overflow: hidden;
+  background: white;
+  border: 1px solid var(--border);
 }
 
-.slot.filled img {
+.slot-image {
+  position: relative;
+  width: 100%;
+  flex: 1 1 auto;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.slot-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.slot-comment {
+  flex: 0 0 76px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--border);
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.slot-comment textarea {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: normal;
+  resize: none;
+}
+
+.comment-save {
+  margin-top: 6px;
+  background: var(--ink);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
 }
 
 /* Empty */
@@ -410,6 +468,33 @@ body {
   color: var(--muted);
 }
 
+.stream-photo {
+  position: relative;
+  aspect-ratio: 1 / 1;
+}
+
+.photo-time-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: white;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.stream-photo:hover .photo-time-pill,
+.stream-photo.show-time .photo-time-pill {
+  opacity: 1;
+}
+
 .photo-name {
   font-weight: 600;
   color: var(--ink);
@@ -417,6 +502,16 @@ body {
 
 .photo-label {
   color: var(--muted);
+}
+
+.photo-comment {
+  padding: 10px 14px 14px;
+  font-size: 12px;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ---------- Stream Notice ---------- */

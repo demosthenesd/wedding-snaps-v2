@@ -55,6 +55,7 @@ const UploadSchema = new mongoose.Schema({
   eventId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   deviceHash: { type: String, required: true, index: true },
   uploaderName: { type: String, default: "" },
+  comment: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now, index: true },
   driveFileId: { type: String, index: true },
 });
@@ -253,6 +254,7 @@ app.get("/events/:eventId/uploads", async (req, res) => {
           driveFileId: u.driveFileId,
           createdAt: u.createdAt,
           uploaderName: u.uploaderName,
+          comment: u.comment,
           // stream endpoint (below)
           url: `${base}/events/${ev._id.toString()}/files/${u.driveFileId}`,
         })),
@@ -433,6 +435,40 @@ app.delete("/events/:eventId/uploads/:uploadId", async (req, res) => {
 /**
  * ✅ List uploads for THIS device only (Personal Grid)
  */
+/**
+ * Update a comment for an upload (owner device only)
+ */
+app.patch("/events/:eventId/uploads/:uploadId/comment", async (req, res) => {
+  const { eventId, uploadId } = req.params;
+
+  const ev = await Event.findById(eventId);
+  if (!ev) {
+    return res.status(404).json({ ok: false, error: "Event not found" });
+  }
+
+  const upload = await Upload.findById(uploadId);
+  if (!upload) {
+    return res.status(404).json({ ok: false, error: "Upload not found" });
+  }
+
+  if (String(upload.eventId) !== String(ev._id)) {
+    return res.status(403).json({ ok: false, error: "Upload does not belong to this event" });
+  }
+
+  const deviceHash = getDeviceHash(req);
+  if (upload.deviceHash !== deviceHash) {
+    return res.status(403).json({
+      ok: false,
+      error: "You can only edit comments from this device",
+    });
+  }
+
+  const comment = String(req.body?.comment || "").trim().slice(0, 200);
+  upload.comment = comment;
+  await upload.save();
+
+  res.json({ ok: true, comment });
+});
 app.get("/events/:eventId/my-uploads", async (req, res) => {
   const ev = await Event.findById(req.params.eventId);
   if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
@@ -457,6 +493,7 @@ app.get("/events/:eventId/my-uploads", async (req, res) => {
         driveFileId: u.driveFileId,
         createdAt: u.createdAt,
         uploaderName: u.uploaderName,
+        comment: u.comment,
         url: `${base}/events/${ev._id.toString()}/files/${u.driveFileId}`,
       })),
   });
@@ -465,3 +502,5 @@ app.get("/events/:eventId/my-uploads", async (req, res) => {
 /** ---------- Boot ---------- */
 const port = Number(process.env.PORT || 8080);
 app.listen(port, () => console.log("API on", port));
+
+
