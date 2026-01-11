@@ -16,6 +16,11 @@ function getDeviceId() {
     return id;
 }
 
+function buildGuestName() {
+    const id = crypto.randomUUID().slice(0, 6).toUpperCase();
+    return `Guest ${id}`;
+}
+
 async function compressImage(file, maxBytes = 100_000, maxDim = 1600) {
     const bitmap = await createImageBitmap(file);
 
@@ -153,11 +158,21 @@ export default function Gallery({ eventId }) {
     const [allUploads, setAllUploads] = useState([]);
     const [uploadLimit, setUploadLimit] = useState(4);
     const [isDriveConnected, setIsDriveConnected] = useState(false);
+    const [isOwnerConnected, setIsOwnerConnected] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [showCamera, setShowCamera] = useState(false);
+    const [showIdentityModal, setShowIdentityModal] = useState(false);
+    const [showNameEntry, setShowNameEntry] = useState(false);
+    const [nameInput, setNameInput] = useState("");
+    const [uploaderName, setUploaderName] = useState("");
+    const [hasNewUploads, setHasNewUploads] = useState(false);
+    const [latestSeenAt, setLatestSeenAt] = useState(null);
+    const [streamLoaded, setStreamLoaded] = useState(false);
 
     const pickerRef = useRef(null);
     const connectUrl = `${API_BASE}/auth/google/start?eventId=${eventId}`;
+    const choiceKey = `wedding_snaps_identity_choice_${eventId}`;
+    const nameKey = "wedding_snaps_uploader_name";
 
     /* ---------- Fetch config ---------- */
     useEffect(() => {
@@ -167,15 +182,58 @@ export default function Gallery({ eventId }) {
                 if (d.ok) {
                     setUploadLimit(d.uploadLimit);
                     setIsDriveConnected(d.isDriveConnected);
+                    setIsOwnerConnected(!!d.isOwnerConnected);
                 }
             });
     }, [eventId]);
+
+    useEffect(() => {
+        if (!eventId) return;
+        const choice = localStorage.getItem(choiceKey);
+        const storedName = localStorage.getItem(nameKey);
+        if (storedName) setUploaderName(storedName);
+        if (choice === "anonymous" && !storedName) {
+            const guestName = buildGuestName();
+            localStorage.setItem(nameKey, guestName);
+            setUploaderName(guestName);
+        }
+        if (!choice) setShowIdentityModal(true);
+    }, [eventId, choiceKey, nameKey]);
+
+    const chooseAnonymous = () => {
+        const guestName = buildGuestName();
+        localStorage.setItem(nameKey, guestName);
+        setUploaderName(guestName);
+        localStorage.setItem(choiceKey, "anonymous");
+        setShowIdentityModal(false);
+        setShowNameEntry(false);
+    };
+
+    const openNameEntry = () => {
+        setShowNameEntry(true);
+    };
+
+    const saveName = () => {
+        const nextName = nameInput.trim().slice(0, 40);
+        if (!nextName) return;
+        localStorage.setItem(nameKey, nextName);
+        localStorage.setItem(choiceKey, "named");
+        setUploaderName(nextName);
+        setShowIdentityModal(false);
+        setShowNameEntry(false);
+    };
 
     /* ---------- Fetch uploads ---------- */
     const fetchAll = async () => {
         const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`);
         const d = await r.json();
-        if (d.ok) setAllUploads(d.items);
+        if (d.ok) {
+            setAllUploads(d.items);
+            setStreamLoaded(true);
+            const newest = d.items?.[0]?.createdAt;
+            setLatestSeenAt(newest ? Date.parse(newest) : null);
+            setHasNewUploads(false);
+        }
     };
 
     const fetchMine = async () => {
@@ -191,9 +249,40 @@ export default function Gallery({ eventId }) {
         fetchMine();
     }, [eventId]);
 
+    const checkForNewUploads = async () => {
+        if (!streamLoaded) return;
+        try {
+            const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=1`);
+            const d = await r.json();
+            if (!d.ok) return;
+            const newest = d.items?.[0]?.createdAt;
+            if (!newest) return;
+            const newestTime = Date.parse(newest);
+            if (latestSeenAt === null || newestTime > latestSeenAt) {
+                setHasNewUploads(true);
+            }
+        } catch {
+            // Ignore check errors to avoid user disruption.
+        }
+    };
+
+    useEffect(() => {
+        if (tab !== "stream") return;
+        checkForNewUploads();
+
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") {
+                checkForNewUploads();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => document.removeEventListener("visibilitychange", handleVisibility);
+    }, [tab, latestSeenAt, streamLoaded, eventId]);
+
     /* ---------- Upload ---------- */
-    const uploadFile = async (file) => {
-        setIsUploading(true);
+    const uploadFile = async (file, { manageState = true } = {}) => {
+        if (manageState) setIsUploading(true);
         try {
             const compressed = await compressImage(file);
             const form = new FormData();
@@ -201,7 +290,10 @@ export default function Gallery({ eventId }) {
 
             const res = await fetch(`${API_BASE}/events/${eventId}/upload`, {
                 method: "POST",
-                headers: { "X-Device-Id": getDeviceId() },
+                headers: {
+                    "X-Device-Id": getDeviceId(),
+                    ...(uploaderName ? { "X-Uploader-Name": uploaderName } : {}),
+                },
                 body: form,
             });
 
@@ -212,6 +304,18 @@ export default function Gallery({ eventId }) {
             await fetchMine();
         } catch {
             alert("Upload failed");
+        } finally {
+            if (manageState) setIsUploading(false);
+        }
+    };
+
+    const uploadFiles = async (files) => {
+        if (!files?.length) return;
+        setIsUploading(true);
+        try {
+            for (const file of files) {
+                await uploadFile(file, { manageState: false });
+            }
         } finally {
             setIsUploading(false);
         }
@@ -247,6 +351,60 @@ export default function Gallery({ eventId }) {
 
     return (
         <div className="gallery">
+            {showIdentityModal && (
+                <div className="identity-modal">
+                    <div className="identity-card">
+                        {!isOwnerConnected ? (
+                            <>
+                                <h3 className="identity-title">
+                                    Connect Google Drive to start collecting guest photos.
+                                </h3>
+                                <div className="identity-actions">
+                                    <a href={connectUrl} className="pill-btn">
+                                        Connect Google Drive
+                                    </a>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="identity-title">
+                                    Want to add your name to your uploads?
+                                </h3>
+
+                                {!showNameEntry && (
+                                    <div className="identity-actions">
+                                        <button className="pill-btn" onClick={openNameEntry} type="button">
+                                            Add my name
+                                        </button>
+                                        <button className="pill-btn secondary" onClick={chooseAnonymous} type="button">
+                                            Continue anonymously
+                                        </button>
+                                    </div>
+                                )}
+
+                                {showNameEntry && (
+                                    <div className="identity-entry">
+                                        <input
+                                            type="text"
+                                            placeholder="Your name"
+                                            value={nameInput}
+                                            onChange={(e) => setNameInput(e.target.value)}
+                                        />
+                                        <div className="identity-actions">
+                                            <button className="pill-btn" onClick={saveName} type="button">
+                                                Continue
+                                            </button>
+                                            <button className="pill-btn secondary" onClick={chooseAnonymous} type="button">
+                                                Skip
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
             {showCamera && (
                 <Camera
                     onClose={() => setShowCamera(false)}
@@ -286,6 +444,36 @@ export default function Gallery({ eventId }) {
 
             {tab === "personal" && isDriveConnected && (
                 <section className="personal-grid">
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+                        {myUploads.length >= uploadLimit ? (
+                            <div className="limit-warning">
+                                Max limit reached. Delete a photo if you want to upload a new one.
+                            </div>
+                        ) : (
+                            <>
+                                <button
+                                    className="pill-btn"
+                                    onClick={() => pickerRef.current?.click()}
+                                    disabled={isUploading}
+                                    type="button"
+                                >
+                                    {isUploading ? "Uploading..." : "Upload from device"}
+                                </button>
+                                <input
+                                    ref={pickerRef}
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    style={{ display: "none" }}
+                                    onChange={(e) => {
+                                        const files = Array.from(e.target.files || []);
+                                        e.target.value = "";
+                                        uploadFiles(files);
+                                    }}
+                                />
+                            </>
+                        )}
+                    </div>
                     <div className="grid">
                         {Array.from({ length: uploadLimit }).map((_, i) => {
                             const p = myUploads[i];
@@ -321,10 +509,19 @@ export default function Gallery({ eventId }) {
                                         }
                                     }}
                                 >
-                                    <span className="slot-icon">📷</span>
-                                    <span className="slot-label">
-                                        {i === myUploads.length ? "CAPTURE" : "LOCKED"}
-                                    </span>
+                                    {i === myUploads.length && isUploading ? (
+                                        <div className="slot-loader">
+                                            <span className="spinner" />
+                                            <span className="slot-label">Uploading</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <span className="slot-icon">📷</span>
+                                            <span className="slot-label">
+                                                {i === myUploads.length ? "CAPTURE" : "LOCKED"}
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                             );
                         })}
@@ -335,6 +532,14 @@ export default function Gallery({ eventId }) {
 
             {tab === "stream" && (
                 <div style={{ padding: 20 }}>
+                    {hasNewUploads && (
+                        <div className="stream-notice">
+                            <span>New images have been uploaded by other guests.</span>
+                            <button type="button" onClick={fetchAll}>
+                                Refresh
+                            </button>
+                        </div>
+                    )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                         {allUploads.map((photo) => (
                             <div
@@ -358,6 +563,12 @@ export default function Gallery({ eventId }) {
                                         }}
                                     />
                                 </div>
+                                {photo.uploaderName && (
+                                    <div className="photo-meta">
+                                        <span className="photo-name">{photo.uploaderName}</span>
+                                        <span className="photo-label">uploaded</span>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

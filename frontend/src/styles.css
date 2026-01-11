@@ -183,6 +183,39 @@ body {
   font-size: 22px;
 }
 
+.slot-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.limit-warning {
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff7e6;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: center;
+  max-width: 260px;
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ---------- Delete Button ---------- */
 
 .delete-btn {
@@ -222,6 +255,196 @@ body {
   cursor: pointer;
 }
 
+.pill-btn.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+
+/* ---------- Landing ---------- */
+
+.landing {
+  padding: 28px 20px 40px;
+}
+
+.landing-card {
+  background: linear-gradient(180deg, #ffffff 0%, #fdf8ef 100%);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 24px 20px;
+  box-shadow: 0 18px 40px rgba(74, 63, 53, 0.08);
+}
+
+.landing-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.landing-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.landing-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 26px;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+
+.landing-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.landing-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.landing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: left;
+}
+
+.landing-field input {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--ink);
+  background: white;
+}
+
+.landing-field input:focus {
+  outline: 2px solid rgba(212, 175, 55, 0.3);
+  border-color: var(--gold);
+}
+
+.landing-error {
+  color: #b23a2f;
+  font-size: 12px;
+  margin: 0;
+}
+
+.landing-primary {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.landing-link {
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+}
+
+.landing-note {
+  margin: 18px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ---------- Identity Modal ---------- */
+
+.identity-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 220;
+  padding: 20px;
+}
+
+.identity-card {
+  background: white;
+  border-radius: 20px;
+  padding: 22px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+
+.identity-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 20px;
+  margin: 0 0 16px;
+  color: var(--ink);
+}
+
+.identity-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.identity-entry input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+/* ---------- Stream Meta ---------- */
+
+.photo-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.photo-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.photo-label {
+  color: var(--muted);
+}
+
+/* ---------- Stream Notice ---------- */
+
+.stream-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff7e6;
+  color: var(--ink);
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+.stream-notice button {
+  border: none;
+  background: var(--ink);
+  color: white;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 /* ---------- QR Modal ---------- */
 
 .qrModal {
@@ -232,28 +455,108 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 200;
+  padding: 20px;
 }
 
 .qrCard {
-  background: white;
-  border-radius: 20px;
-  padding: 24px;
-  width: 90%;
-  max-width: 320px;
+  background: linear-gradient(180deg, #ffffff 0%, #fdf8ef 100%);
+  border-radius: 24px;
+  padding: 22px;
+  width: 100%;
+  max-width: 360px;
   text-align: center;
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 40px rgba(74, 63, 53, 0.16);
+}
+
+.qrHeader {
+  margin-bottom: 16px;
+}
+
+.qrEyebrow {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 6px;
 }
 
 .qrTitle {
   font-family: "Cormorant Garamond", serif;
-  font-size: 22px;
-  margin-bottom: 12px;
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+
+.qrSubtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.qrCanvasWrap {
+  display: inline-flex;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: white;
+  margin: 6px 0 10px;
 }
 
 .qrUrl {
-  font-size: 10px;
+  font-size: 11px;
   word-break: break-all;
   color: var(--muted);
-  margin: 8px 0;
+  margin: 8px 0 14px;
+}
+
+.qrActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---------- Identity Modal ---------- */
+
+.identity-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 220;
+  padding: 20px;
+}
+
+.identity-card {
+  background: white;
+  border-radius: 20px;
+  padding: 22px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+
+.identity-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 20px;
+  margin: 0 0 16px;
+  color: var(--ink);
+}
+
+.identity-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.identity-entry input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  font-size: 14px;
 }
 
 /* ---------- Camera Modal (ACTIVE) ---------- */

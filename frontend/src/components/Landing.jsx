@@ -45,47 +45,64 @@ export default function Landing() {
 
   return (
     <>
-      <div style={{ padding: 32, textAlign: "center" }}>
-        <h2 style={{ marginBottom: 16 }}>Create Wedding Event</h2>
+      <div className="landing">
+        <section className="landing-card">
+          <div className="landing-header">
+            <p className="landing-eyebrow">Create event</p>
+            <h2 className="landing-title">Capture your behind-the-scenes!</h2>
+            <p className="landing-subtitle">
+              Set up a shared gallery and invite guests to upload their favorite
+              moments.
+            </p>
+          </div>
 
-        <input
-          type="text"
-          placeholder="Event name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={{ width: "100%", marginBottom: 12 }}
-        />
+          <div className="landing-form">
+            <label className="landing-field">
+              <span>Event name</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
 
-        <input
-          type="text"
-          placeholder="Google Drive folder ID"
-          value={driveId}
-          onChange={(e) => setDriveId(e.target.value)}
-          style={{ width: "100%", marginBottom: 12 }}
-        />
+            <label className="landing-field">
+              <span>Google Drive folder ID</span>
+              <input
+                type="text"
+                value={driveId}
+                onChange={(e) => setDriveId(e.target.value)}
+              />
+            </label>
 
-        {error && (
-          <p style={{ color: "crimson", fontSize: 12 }}>{error}</p>
-        )}
+            {error && <p className="landing-error">{error}</p>}
 
-        <button
-          onClick={createEvent}
-          disabled={!name || !driveId || busy}
-          style={{ width: "100%", marginTop: 12 }}
-        >
-          {busy ? "Creating…" : "Create Event"}
-        </button>
+            <button
+              className="pill-btn landing-primary"
+              onClick={createEvent}
+              disabled={!name || !driveId || busy}
+              type="button"
+            >
+              {busy ? "Creating..." : "Create Event"}
+            </button>
 
-        {connectUrl && (
-          <a
-            href={connectUrl}
-            target="_blank"
-            rel="noreferrer"
-            style={{ display: "block", marginTop: 12 }}
-          >
-            Connect Google Drive
-          </a>
-        )}
+            {connectUrl && (
+              <a
+                href={connectUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="pill-btn secondary landing-link"
+              >
+                Connect Google Drive
+              </a>
+            )}
+          </div>
+
+          <p className="landing-note">
+            Share the QR once your Drive is connected so guests can upload
+            instantly.
+          </p>
+        </section>
       </div>
 
       {publicUrl && (

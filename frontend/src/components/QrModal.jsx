@@ -21,16 +21,28 @@ export default function QrModal({ url, onClose }) {
   return (
     <div className="qrModal">
       <div className="qrCard">
-        <h3 className="qrTitle">Invite your guests</h3>
+        <div className="qrHeader">
+          <p className="qrEyebrow">Share the moment</p>
+          <h3 className="qrTitle">Invite your guests</h3>
+          <p className="qrSubtitle">
+            Scan or share the link so everyone can upload to your wedding stream.
+          </p>
+        </div>
 
-        <canvas ref={canvasRef} />
+        <div className="qrCanvasWrap">
+          <canvas ref={canvasRef} />
+        </div>
 
         <p className="qrUrl">{url}</p>
 
         <div className="qrActions">
-          <button onClick={copy}>Copy link</button>
-          <a href={url}>Open gallery</a>
-          <button className="secondary" onClick={onClose}>
+          <button className="pill-btn" onClick={copy} type="button">
+            Copy link
+          </button>
+          <a className="pill-btn secondary" href={url}>
+            Open gallery
+          </a>
+          <button className="pill-btn secondary" onClick={onClose} type="button">
             Close
           </button>
         </div>

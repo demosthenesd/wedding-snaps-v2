@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import { google } from "googleapis";
 import { Readable } from "stream";
+import fs from "fs";
+import path from "path";
 import "dotenv/config";
 
 const app = express();
@@ -52,6 +54,7 @@ const EventSchema = new mongoose.Schema({
 const UploadSchema = new mongoose.Schema({
   eventId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   deviceHash: { type: String, required: true, index: true },
+  uploaderName: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now, index: true },
   driveFileId: { type: String, index: true },
 });
@@ -69,6 +72,39 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_OAUTH_CLIENT_SECRET,
   process.env.GOOGLE_OAUTH_REDIRECT_URI
 );
+
+/** ---------- Service Account (optional anonymous uploads) ---------- */
+let serviceAccountCredentials = null;
+if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+  try {
+    serviceAccountCredentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  } catch (err) {
+    console.warn("Invalid GOOGLE_SERVICE_ACCOUNT_JSON:", err?.message || err);
+  }
+} else if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_PATH) {
+  try {
+    const filePath = path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_JSON_PATH);
+    const raw = fs.readFileSync(filePath, "utf8");
+    serviceAccountCredentials = JSON.parse(raw);
+  } catch (err) {
+    console.warn("Invalid GOOGLE_SERVICE_ACCOUNT_JSON_PATH:", err?.message || err);
+  }
+}
+
+const hasServiceAccount = !!serviceAccountCredentials;
+
+function driveForServiceAccount() {
+  if (!serviceAccountCredentials) {
+    throw new Error("Service account credentials not configured");
+  }
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: serviceAccountCredentials,
+    scopes: ["https://www.googleapis.com/auth/drive.file"],
+  });
+
+  return google.drive({ version: "v3", auth });
+}
 
 function driveForRefreshToken(refreshToken) {
   const auth = new google.auth.OAuth2(
@@ -105,106 +141,108 @@ function apiBaseFromReq(req) {
   return `${proto}://${host}`;
 }
 
-  /** ---------- Routes ---------- */
+/** ---------- Routes ---------- */
 
-  app.get("/", (_req, res) => res.json({ ok: true, status: "alive" }));
+app.get("/", (_req, res) => res.json({ ok: true, status: "alive" }));
 
-  /**
-   * Create event
-   * - If driveFolderId missing, uses TEST_DRIVE_FOLDER_ID
-   */
-  app.post("/events", async (req, res) => {
-    const { name, driveFolderId } = req.body || {};
+/**
+ * Create event
+ * - If driveFolderId missing, uses TEST_DRIVE_FOLDER_ID
+ */
+app.post("/events", async (req, res) => {
+  const { name, driveFolderId } = req.body || {};
 
-    const ev = await Event.create({
-      name: name || "Wedding",
-      driveFolderId: driveFolderId || TEST_DRIVE_FOLDER_ID,
-    });
-
-    res.json({
-      ok: true,
-      eventId: ev._id.toString(),
-      publicUrl: `${process.env.PUBLIC_BASE_URL || ""}/?e=${ev._id.toString()}`,
-      connectUrl: `${apiBaseFromReq(req)}/auth/google/start?eventId=${ev._id.toString()}`,
-      driveFolderId: ev.driveFolderId, // helpful while testing
-    });
+  const ev = await Event.create({
+    name: name || "Wedding",
+    driveFolderId: driveFolderId || TEST_DRIVE_FOLDER_ID,
   });
 
-  /** Start OAuth for an event */
-  app.get("/auth/google/start", async (req, res) => {
-    const { eventId } = req.query;
-    if (!eventId) return res.status(400).send("Missing eventId");
+  res.json({
+    ok: true,
+    eventId: ev._id.toString(),
+    publicUrl: `${process.env.PUBLIC_BASE_URL || ""}/?e=${ev._id.toString()}`,
+    connectUrl: `${apiBaseFromReq(req)}/auth/google/start?eventId=${ev._id.toString()}`,
+    driveFolderId: ev.driveFolderId, // helpful while testing
+  });
+});
 
-    const ev = await Event.findById(eventId);
-    if (!ev) return res.status(404).send("Event not found");
+/** Start OAuth for an event */
+app.get("/auth/google/start", async (req, res) => {
+  const { eventId } = req.query;
+  if (!eventId) return res.status(400).send("Missing eventId");
 
-    const url = oauth2Client.generateAuthUrl({
-      access_type: "offline", // important for refresh_token
-      prompt: "consent", // ensures refresh_token is returned
-      scope: ["https://www.googleapis.com/auth/drive.file"],
-      state: ev._id.toString(), // carry eventId through callback
-    });
+  const ev = await Event.findById(eventId);
+  if (!ev) return res.status(404).send("Event not found");
 
-    res.redirect(url);
+  const url = oauth2Client.generateAuthUrl({
+    access_type: "offline", // important for refresh_token
+    prompt: "consent", // ensures refresh_token is returned
+    scope: ["https://www.googleapis.com/auth/drive.file"],
+    state: ev._id.toString(), // carry eventId through callback
   });
 
-  /** OAuth callback (MAKE SURE GOOGLE_OAUTH_REDIRECT_URI points here) */
-  app.get("/oauth2/callback", async (req, res) => {
-    const { code, state } = req.query;
-    if (!code || !state) return res.status(400).send("Missing code/state");
+  res.redirect(url);
+});
 
-    const eventId = String(state);
-    const ev = await Event.findById(eventId);
-    if (!ev) return res.status(404).send("Event not found");
+/** OAuth callback (MAKE SURE GOOGLE_OAUTH_REDIRECT_URI points here) */
+app.get("/oauth2/callback", async (req, res) => {
+  const { code, state } = req.query;
+  if (!code || !state) return res.status(400).send("Missing code/state");
 
-    const { tokens } = await oauth2Client.getToken(String(code));
+  const eventId = String(state);
+  const ev = await Event.findById(eventId);
+  if (!ev) return res.status(404).send("Event not found");
 
-    if (!tokens.refresh_token) {
-      return res
-        .status(400)
-        .send(
-          "No refresh_token returned. Remove app access from your Google Account and try again (or ensure prompt=consent)."
-        );
-    }
+  const { tokens } = await oauth2Client.getToken(String(code));
 
-    ev.googleRefreshToken = tokens.refresh_token;
-    await ev.save();
+  if (!tokens.refresh_token) {
+    return res
+      .status(400)
+      .send(
+        "No refresh_token returned. Remove app access from your Google Account and try again (or ensure prompt=consent)."
+      );
+  }
 
-    const back = `${process.env.PUBLIC_BASE_URL || "http://localhost:5173"}/?e=${ev._id.toString()}`;
-    res.redirect(back);
+  ev.googleRefreshToken = tokens.refresh_token;
+  await ev.save();
+
+  const back = `${process.env.PUBLIC_BASE_URL || "http://localhost:5173"}/?e=${ev._id.toString()}`;
+  res.redirect(back);
+});
+
+/** Public event config (frontend uses this) */
+app.get("/events/:eventId", async (req, res) => {
+  const ev = await Event.findById(req.params.eventId);
+  if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
+
+  res.json({
+    ok: true,
+    name: ev.name,
+    uploadLimit: ev.uploadLimit,
+    windowHours: ev.windowHours,
+    isDriveConnected: !!ev.googleRefreshToken || hasServiceAccount,
+    isServiceAccountActive: hasServiceAccount,
+    isOwnerConnected: !!ev.googleRefreshToken,
   });
+});
 
-  /** Public event config (frontend uses this) */
-  app.get("/events/:eventId", async (req, res) => {
-    const ev = await Event.findById(req.params.eventId);
-    if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
+/**
+ * ✅ List uploads for event (for grid)
+ * Returns URLs that the frontend can put directly into <img src="...">
+ */
+app.get("/events/:eventId/uploads", async (req, res) => {
+  const ev = await Event.findById(req.params.eventId);
+  if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
 
-    res.json({
-      ok: true,
-      name: ev.name,
-      uploadLimit: ev.uploadLimit,
-      windowHours: ev.windowHours,
-      isDriveConnected: !!ev.googleRefreshToken,
-    });
-  });
+  // Allow listing even if not connected; it will just be empty or unusable
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit || 80)));
 
-  /**
-   * ✅ List uploads for event (for grid)
-   * Returns URLs that the frontend can put directly into <img src="...">
-   */
-  app.get("/events/:eventId/uploads", async (req, res) => {
-    const ev = await Event.findById(req.params.eventId);
-    if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
+  const uploads = await Upload.find({ eventId: ev._id })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
 
-    // Allow listing even if not connected; it will just be empty or unusable
-    const limit = Math.min(200, Math.max(1, Number(req.query.limit || 80)));
-
-    const uploads = await Upload.find({ eventId: ev._id })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
-
-    const base = apiBaseFromReq(req);
+  const base = apiBaseFromReq(req);
 
     res.json({
       ok: true,
@@ -214,116 +252,130 @@ function apiBaseFromReq(req) {
           id: String(u._id),
           driveFileId: u.driveFileId,
           createdAt: u.createdAt,
+          uploaderName: u.uploaderName,
           // stream endpoint (below)
           url: `${base}/events/${ev._id.toString()}/files/${u.driveFileId}`,
         })),
     });
   });
 
-  /**
-   * ✅ Stream a Drive file as an image (used by the grid)
-   * Security: only streams if that driveFileId exists in Uploads for this event.
-   */
-  app.get("/events/:eventId/files/:fileId", async (req, res) => {
-    const ev = await Event.findById(req.params.eventId);
-    if (!ev) return res.status(404).send("Event not found");
-
-    if (!ev.googleRefreshToken) return res.status(400).send("Drive not connected for this event");
-
-    const fileId = String(req.params.fileId || "");
-    if (!fileId) return res.status(400).send("Missing fileId");
-
-    const exists = await Upload.exists({ eventId: ev._id, driveFileId: fileId });
-    if (!exists) return res.status(404).send("File not found for this event");
-
-    try {
-      const drive = driveForRefreshToken(ev.googleRefreshToken);
-
-      // Stream bytes
-      const r = await drive.files.get(
-        { fileId, alt: "media" },
-        { responseType: "stream" }
-      );
-
-      // Best effort content-type
-      const ct = r?.headers?.["content-type"] || "image/jpeg";
-      res.setHeader("Content-Type", ct);
-      res.setHeader("Cache-Control", "public, max-age=300"); // small cache
-
-      r.data.on("error", (err) => {
-        console.error("Drive stream error:", err);
-        if (!res.headersSent) res.status(500).end("Stream error");
-        else res.end();
-      });
-
-      r.data.pipe(res);
-    } catch (err) {
-      console.error("Drive fetch error:", err?.message || err);
-      res.status(500).send("Failed to fetch file");
-    }
-  });
-
-  /** Upload endpoint (uploads AS the Drive owner via refresh token) */
-  app.post("/events/:eventId/upload", upload.single("file"), async (req, res) => {
-    const ev = await Event.findById(req.params.eventId);
-    if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
-
-    if (!ev.googleRefreshToken) {
-      return res.status(400).json({
-        ok: false,
-        error: "Drive not connected for this event yet. Owner must connect Google Drive first.",
-        connectUrl: `${apiBaseFromReq(req)}/auth/google/start?eventId=${ev._id.toString()}`,
-      });
-    }
-
-    const file = req.file;
-    if (!file) return res.status(400).json({ ok: false, error: "Missing file" });
-    if (!file.mimetype?.startsWith("image/")) {
-      return res.status(400).json({ ok: false, error: "Only images allowed" });
-    }
-
-    const deviceHash = getDeviceHash(req);
-
-    const since = new Date(Date.now() - ev.windowHours * 60 * 60 * 1000);
-    const recentCount = await Upload.countDocuments({
-      eventId: ev._id,
-      deviceHash,
-      createdAt: { $gte: since },
-    });
-
-    if (recentCount >= ev.uploadLimit) {
-      return res.status(429).json({ ok: false, error: "Upload limit reached for this device (windowed)" });
-    }
-
-    const drive = driveForRefreshToken(ev.googleRefreshToken);
-    const stream = Readable.from(file.buffer);
-
-    const driveResp = await drive.files.create({
-      requestBody: {
-        name: `wedding-snap-${Date.now()}.jpg`,
-        parents: [ev.driveFolderId],
-      },
-      media: { mimeType: file.mimetype, body: stream },
-      fields: "id",
-    });
-
-    const driveFileId = driveResp?.data?.id;
-
-    const uploadDoc = await Upload.create({ eventId: ev._id, deviceHash, driveFileId });
-
-    res.json({
-      ok: true,
-      driveFileId,
-      uploadId: uploadDoc._id.toString(),
-      // give frontend a ready-to-use URL
-      url: `${apiBaseFromReq(req)}/events/${ev._id.toString()}/files/${driveFileId}`,
-    });
-  });
-
-
-  /**
- * ❌ Delete an upload (owner device only)
+/**
+ * ✅ Stream a Drive file as an image (used by the grid)
+ * Security: only streams if that driveFileId exists in Uploads for this event.
  */
+app.get("/events/:eventId/files/:fileId", async (req, res) => {
+  const ev = await Event.findById(req.params.eventId);
+  if (!ev) return res.status(404).send("Event not found");
+
+  if (!ev.googleRefreshToken && !hasServiceAccount) {
+    return res.status(400).send("Drive not connected for this event");
+  }
+
+  const fileId = String(req.params.fileId || "");
+  if (!fileId) return res.status(400).send("Missing fileId");
+
+  const exists = await Upload.exists({ eventId: ev._id, driveFileId: fileId });
+  if (!exists) return res.status(404).send("File not found for this event");
+
+  try {
+    const drive = ev.googleRefreshToken
+      ? driveForRefreshToken(ev.googleRefreshToken)
+      : driveForServiceAccount();
+
+    // Stream bytes
+    const r = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    // Best effort content-type
+    const ct = r?.headers?.["content-type"] || "image/jpeg";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "public, max-age=300"); // small cache
+
+    r.data.on("error", (err) => {
+      console.error("Drive stream error:", err);
+      if (!res.headersSent) res.status(500).end("Stream error");
+      else res.end();
+    });
+
+    r.data.pipe(res);
+  } catch (err) {
+    console.error("Drive fetch error:", err?.message || err);
+    res.status(500).send("Failed to fetch file");
+  }
+});
+
+/** Upload endpoint (uploads AS the Drive owner via refresh token) */
+app.post("/events/:eventId/upload", upload.single("file"), async (req, res) => {
+  const ev = await Event.findById(req.params.eventId);
+  if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
+
+  if (!ev.googleRefreshToken && !hasServiceAccount) {
+    return res.status(400).json({
+      ok: false,
+      error: "Drive not connected for this event yet. Owner must connect Google Drive first.",
+      connectUrl: `${apiBaseFromReq(req)}/auth/google/start?eventId=${ev._id.toString()}`,
+    });
+  }
+
+  const file = req.file;
+  if (!file) return res.status(400).json({ ok: false, error: "Missing file" });
+  if (!file.mimetype?.startsWith("image/")) {
+    return res.status(400).json({ ok: false, error: "Only images allowed" });
+  }
+
+  const deviceHash = getDeviceHash(req);
+  const uploaderName = String(req.get("X-Uploader-Name") || "")
+    .trim()
+    .slice(0, 80);
+  const since = new Date(Date.now() - ev.windowHours * 60 * 60 * 1000);
+  const recentCount = await Upload.countDocuments({
+    eventId: ev._id,
+    deviceHash,
+    createdAt: { $gte: since },
+  });
+
+  if (recentCount >= ev.uploadLimit) {
+    return res.status(429).json({ ok: false, error: "Upload limit reached for this device (windowed)" });
+  }
+
+  const drive = ev.googleRefreshToken
+    ? driveForRefreshToken(ev.googleRefreshToken)
+    : driveForServiceAccount();
+  const stream = Readable.from(file.buffer);
+
+  const driveResp = await drive.files.create({
+    requestBody: {
+      name: `wedding-snap-${Date.now()}.jpg`,
+      parents: [ev.driveFolderId],
+    },
+    media: { mimeType: file.mimetype, body: stream },
+    fields: "id",
+  });
+
+  const driveFileId = driveResp?.data?.id;
+
+  const uploadDoc = await Upload.create({
+    eventId: ev._id,
+    deviceHash,
+    driveFileId,
+    uploaderName,
+  });
+
+  res.json({
+    ok: true,
+    driveFileId,
+    uploadId: uploadDoc._id.toString(),
+    // give frontend a ready-to-use URL
+    url: `${apiBaseFromReq(req)}/events/${ev._id.toString()}/files/${driveFileId}`,
+  });
+});
+
+
+/**
+* ❌ Delete an upload (owner device only)
+*/
 app.delete("/events/:eventId/uploads/:uploadId", async (req, res) => {
   const { eventId, uploadId } = req.params;
 
@@ -404,11 +456,12 @@ app.get("/events/:eventId/my-uploads", async (req, res) => {
         id: String(u._id),
         driveFileId: u.driveFileId,
         createdAt: u.createdAt,
+        uploaderName: u.uploaderName,
         url: `${base}/events/${ev._id.toString()}/files/${u.driveFileId}`,
       })),
   });
 });
 
-  /** ---------- Boot ---------- */
-  const port = Number(process.env.PORT || 8080);
-  app.listen(port, () => console.log("API on", port));
+/** ---------- Boot ---------- */
+const port = Number(process.env.PORT || 8080);
+app.listen(port, () => console.log("API on", port));
