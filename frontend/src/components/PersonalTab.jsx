@@ -183,6 +183,14 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
   }, [eventId]);
 
   useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      fetchMine();
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [eventId]);
+
+  useEffect(() => {
     const nextDrafts = {};
     myUploads.forEach((upload) => {
       nextDrafts[upload.id] = upload.comment || "";
@@ -283,7 +291,14 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
       );
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
-      fetchMine();
+      setMyUploads((prev) =>
+        prev.map((upload) =>
+          upload.id === uploadId
+            ? { ...upload, comment: data.comment, updatedAt: new Date().toISOString() }
+            : upload
+        )
+      );
+      setCommentDrafts((prev) => ({ ...prev, [uploadId]: data.comment }));
     } catch (err) {
       console.error(err);
       alert("Comment update failed");

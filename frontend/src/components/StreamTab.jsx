@@ -23,14 +23,21 @@ export default function StreamTab({ eventId, isActive }) {
     localStorage.setItem("wedding_snaps_stream_view", viewMode);
   }, [viewMode]);
 
+  const latestStampFromItems = (items) => {
+    const latest = items.reduce((max, item) => {
+      const stamp = Date.parse(item.updatedAt || item.createdAt || 0);
+      return Number.isNaN(stamp) ? max : Math.max(max, stamp);
+    }, 0);
+    return latest || null;
+  };
+
   const fetchAll = async () => {
     const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`);
     const d = await r.json();
     if (d.ok) {
       setAllUploads(d.items);
       setStreamLoaded(true);
-      const newest = d.items?.[0]?.createdAt;
-      setLatestSeenAt(newest ? Date.parse(newest) : null);
+      setLatestSeenAt(latestStampFromItems(d.items));
       setLatestCount(d.items?.length || 0);
       setHasNewUploads(false);
       try {
@@ -55,8 +62,7 @@ export default function StreamTab({ eventId, isActive }) {
       if (!Array.isArray(parsed?.items)) return false;
       setAllUploads(parsed.items);
       setStreamLoaded(true);
-      const newest = parsed.items?.[0]?.createdAt;
-      setLatestSeenAt(newest ? Date.parse(newest) : null);
+      setLatestSeenAt(latestStampFromItems(parsed.items));
       setLatestCount(parsed.items?.length || 0);
       return true;
     } catch {
@@ -78,9 +84,8 @@ export default function StreamTab({ eventId, isActive }) {
       const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`);
       const d = await r.json();
       if (!d.ok) return;
-      const newest = d.items?.[0]?.createdAt;
-      if (!newest) return;
-      const newestTime = Date.parse(newest);
+      const newestTime = latestStampFromItems(d.items);
+      if (!newestTime) return false;
       const nextCount = d.items?.length || 0;
       if (
         latestSeenAt === null ||

@@ -16,6 +16,7 @@ function formatUpload(upload, base, eventId) {
     id: String(upload._id),
     driveFileId: upload.driveFileId,
     createdAt: upload.createdAt,
+    updatedAt: upload.updatedAt,
     uploaderName: upload.uploaderName,
     comment: upload.comment,
     url: `${base}/events/${eventId}/files/${upload.driveFileId}`,
@@ -70,7 +71,7 @@ export async function listUploads(req, res) {
   })
     .sort({ createdAt: -1 })
     .limit(limit)
-    .select("driveFileId createdAt uploaderName comment")
+    .select("driveFileId createdAt updatedAt uploaderName comment")
     .lean();
 
   const base = apiBaseFromReq(req);
@@ -269,6 +270,7 @@ export async function updateComment(req, res) {
 
   const comment = String(req.body?.comment || "").trim().slice(0, 200);
   upload.comment = comment;
+  upload.updatedAt = new Date();
   await upload.save();
 
   res.json({ ok: true, comment });
@@ -286,7 +288,7 @@ export async function listMyUploads(req, res) {
     driveFileId: { $exists: true, $ne: "" },
   })
     .sort({ createdAt: 1 })
-    .select("driveFileId createdAt uploaderName comment")
+    .select("driveFileId createdAt updatedAt uploaderName comment")
     .lean();
 
   const base = apiBaseFromReq(req);

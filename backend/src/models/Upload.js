@@ -6,6 +6,7 @@ const UploadSchema = new mongoose.Schema({
   uploaderName: { type: String, default: "" },
   comment: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now, index: true },
+  updatedAt: { type: Date, default: Date.now, index: true },
   driveFileId: { type: String, index: true },
 });
 
