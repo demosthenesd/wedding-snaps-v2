@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ||
@@ -10,7 +10,18 @@ export default function StreamTab({ eventId, isActive }) {
   const [latestSeenAt, setLatestSeenAt] = useState(null);
   const [latestCount, setLatestCount] = useState(0);
   const [streamLoaded, setStreamLoaded] = useState(false);
-  const [activeTimeId, setActiveTimeId] = useState(null);
+  const [viewMode, setViewMode] = useState(() => {
+    const stored = localStorage.getItem("wedding_snaps_stream_view");
+    return stored === "grid" ? "grid" : "list";
+  });
+  const [activeIndex, setActiveIndex] = useState(null);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+  const cacheKey = `wedding_snaps_stream_cache_${eventId}`;
+
+  useEffect(() => {
+    localStorage.setItem("wedding_snaps_stream_view", viewMode);
+  }, [viewMode]);
 
   const fetchAll = async () => {
     const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`);
@@ -22,18 +33,47 @@ export default function StreamTab({ eventId, isActive }) {
       setLatestSeenAt(newest ? Date.parse(newest) : null);
       setLatestCount(d.items?.length || 0);
       setHasNewUploads(false);
+      try {
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            items: d.items,
+          })
+        );
+      } catch {
+        // Ignore cache failures (e.g., storage quota).
+      }
+    }
+  };
+
+  const loadCache = () => {
+    if (!eventId) return false;
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed?.items)) return false;
+      setAllUploads(parsed.items);
+      setStreamLoaded(true);
+      const newest = parsed.items?.[0]?.createdAt;
+      setLatestSeenAt(newest ? Date.parse(newest) : null);
+      setLatestCount(parsed.items?.length || 0);
+      return true;
+    } catch {
+      return false;
     }
   };
 
   useEffect(() => {
     if (!isActive) return;
     if (!streamLoaded) {
-      fetchAll();
+      const loaded = loadCache();
+      if (!loaded) fetchAll();
     }
   }, [eventId, isActive, streamLoaded]);
 
   const checkForNewUploads = async () => {
-    if (!streamLoaded) return;
+    if (!streamLoaded) return false;
     try {
       const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`);
       const d = await r.json();
@@ -48,65 +88,231 @@ export default function StreamTab({ eventId, isActive }) {
         nextCount !== latestCount
       ) {
         setHasNewUploads(true);
+        return true;
       }
+      return false;
     } catch {
       // Ignore check errors to avoid user disruption.
+      return false;
     }
   };
 
   useEffect(() => {
-    if (!isActive) return;
-    checkForNewUploads();
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        checkForNewUploads();
+    if (!isActive || !streamLoaded) return;
+    const checkAndUpdate = async () => {
+      const hasUpdates = await checkForNewUploads();
+      if (hasUpdates) {
+        fetchAll();
       }
     };
+    checkAndUpdate();
+  }, [isActive, streamLoaded, latestSeenAt, latestCount, eventId]);
 
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibility);
-  }, [isActive, latestSeenAt, latestCount, streamLoaded, eventId]);
+  useEffect(() => {
+    if (!isActive || !streamLoaded) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (activeIndex !== null) return;
+      checkForNewUploads();
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [isActive, streamLoaded, latestSeenAt, latestCount, eventId, activeIndex]);
+
+  const openAt = (index) => {
+    setActiveIndex(index);
+  };
+
+  const closeModal = () => {
+    setActiveIndex(null);
+  };
+
+  const showPrev = () => {
+    if (activeIndex === null) return;
+    setActiveIndex((prev) =>
+      prev === 0 ? allUploads.length - 1 : prev - 1
+    );
+  };
+
+  const showNext = () => {
+    if (activeIndex === null) return;
+    setActiveIndex((prev) =>
+      prev === allUploads.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  useEffect(() => {
+    if (activeIndex === null) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeModal();
+      if (e.key === "ArrowLeft") showPrev();
+      if (e.key === "ArrowRight") showNext();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [activeIndex, allUploads.length]);
+
+  const handleTouchStart = (e) => {
+    if (!e.touches?.length) return;
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = touchStartX.current;
+  };
+
+  const handleTouchMove = (e) => {
+    if (!e.touches?.length) return;
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e) => {
+    const endX = e.changedTouches?.[0]?.clientX ?? touchEndX.current;
+    const delta = endX - touchStartX.current;
+    if (Math.abs(delta) < 40) return;
+    if (delta > 0) showPrev();
+    else showNext();
+  };
+
+  const activePhoto =
+    activeIndex !== null ? allUploads[activeIndex] : null;
 
   return (
-    <div style={{ padding: 20 }}>
-      {hasNewUploads && (
-        <div className="stream-notice">
-          <span>New changes in the stream. Tap refresh to update.</span>
-          <button type="button" onClick={fetchAll}>
-            Refresh
-          </button>
+    <div className="stream-wrap">
+      {activePhoto && (
+        <div
+          className="stream-modal"
+          onClick={closeModal}
+          role="presentation"
+        >
+          <div
+            className="stream-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <button
+              type="button"
+              className="stream-modal-close"
+              onClick={closeModal}
+              aria-label="Close"
+            >
+              X
+            </button>
+            <div
+              className="stream-modal-media"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div
+                className="stream-modal-track"
+                style={{
+                  transform: `translateX(-${activeIndex * 100}%)`,
+                }}
+              >
+                {allUploads.map((photo) => (
+                  <div key={photo.id} className="stream-modal-slide">
+                    <img src={photo.url} alt="" />
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="stream-modal-nav left"
+                onClick={showPrev}
+                aria-label="Previous"
+              >
+                {"<"}
+              </button>
+              <button
+                type="button"
+                className="stream-modal-nav right"
+                onClick={showNext}
+                aria-label="Next"
+              >
+                {">"}
+              </button>
+            </div>
+            <div className="stream-modal-meta">
+              {activePhoto.uploaderName && (
+                <div className="stream-modal-name">
+                  {activePhoto.uploaderName}
+                </div>
+              )}
+              {activePhoto.createdAt && (
+                <div className="stream-modal-time">
+                  {new Date(activePhoto.createdAt).toLocaleString([], {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
+                </div>
+              )}
+              {activePhoto.comment && (
+                <div className="stream-modal-comment">
+                  {activePhoto.comment}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        {allUploads.map((photo) => {
-          const showTime = activeTimeId === photo.id;
+      <div className="stream-toolbar">
+        {hasNewUploads ? (
+          <div className="stream-notice">
+            <span>New changes in the stream. Tap refresh to update.</span>
+            <button type="button" onClick={fetchAll}>
+              Refresh
+            </button>
+          </div>
+        ) : (
+          <span className="stream-label">Wedding stream</span>
+        )}
+        <div className="stream-toggle" role="group" aria-label="View mode">
+          <button
+            type="button"
+            className={`stream-toggle-btn${viewMode === "list" ? " active" : ""}`}
+            onClick={() => setViewMode("list")}
+            title="List view"
+            aria-label="List view"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="2" rx="1" />
+              <rect x="4" y="11" width="16" height="2" rx="1" />
+              <rect x="4" y="17" width="16" height="2" rx="1" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={`stream-toggle-btn${viewMode === "grid" ? " active" : ""}`}
+            onClick={() => setViewMode("grid")}
+            title="Grid view"
+            aria-label="Grid view"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="4" width="6" height="6" rx="1" />
+              <rect x="14" y="4" width="6" height="6" rx="1" />
+              <rect x="4" y="14" width="6" height="6" rx="1" />
+              <rect x="14" y="14" width="6" height="6" rx="1" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div className={`stream-grid${viewMode === "grid" ? " grid" : ""}`}>
+        {allUploads.map((photo, index) => {
           return (
             <div
               key={photo.id}
-              style={{
-                background: "white",
-                borderRadius: 20,
-                overflow: "hidden",
-                border: "1px solid var(--border)",
-              }}
+              className="stream-card"
             >
               <div
-                className={`stream-photo${showTime ? " show-time" : ""}`}
+                className="stream-photo"
                 role="button"
                 tabIndex={0}
-                onClick={() =>
-                  setActiveTimeId((prev) =>
-                    prev === photo.id ? null : photo.id
-                  )
-                }
+                onClick={() => openAt(index)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setActiveTimeId((prev) =>
-                      prev === photo.id ? null : photo.id
-                    );
+                    openAt(index);
                   }
                 }}
               >

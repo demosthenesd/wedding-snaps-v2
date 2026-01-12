@@ -166,6 +166,8 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
   const [isUploading, setIsUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [deletingIds, setDeletingIds] = useState({});
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const pickerRef = useRef(null);
 
   const fetchMine = async () => {
@@ -227,8 +229,17 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
     }
   };
 
-  const handleDelete = async (uploadId) => {
-    if (!confirm("Delete this photo?")) return;
+  const requestDelete = (uploadId) => {
+    if (deletingIds[uploadId]) return;
+    setConfirmDeleteId(uploadId);
+  };
+
+  const confirmDelete = async () => {
+    const uploadId = confirmDeleteId;
+    if (!uploadId) return;
+    setConfirmDeleteId(null);
+    if (deletingIds[uploadId]) return;
+    setDeletingIds((prev) => ({ ...prev, [uploadId]: true }));
 
     try {
       const res = await fetch(
@@ -248,6 +259,12 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
     } catch (err) {
       console.error(err);
       alert("Delete failed");
+    } finally {
+      setDeletingIds((prev) => {
+        const next = { ...prev };
+        delete next[uploadId];
+        return next;
+      });
     }
   };
 
@@ -275,6 +292,38 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
 
   return (
     <section className="personal-grid">
+      {confirmDeleteId && (
+        <div
+          className="identity-modal"
+          onClick={() => setConfirmDeleteId(null)}
+          role="presentation"
+        >
+          <div
+            className="identity-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h3 className="identity-title">Delete this photo?</h3>
+            <div className="identity-actions">
+              <button
+                className="pill-btn"
+                type="button"
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+              <button
+                className="pill-btn secondary"
+                type="button"
+                onClick={() => setConfirmDeleteId(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showCamera && (
         <Camera
           onClose={() => setShowCamera(false)}
@@ -286,37 +335,6 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
         />
       )}
 
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-        {myUploads.length >= uploadLimit ? (
-          <div className="limit-warning">
-            Max limit reached. Delete a photo if you want to upload a new one.
-          </div>
-        ) : (
-          <>
-            <button
-              className="pill-btn"
-              onClick={() => pickerRef.current?.click()}
-              disabled={isUploading}
-              type="button"
-            >
-              {isUploading ? "Uploading..." : "Upload from device"}
-            </button>
-            <input
-              ref={pickerRef}
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                e.target.value = "";
-                uploadFiles(files);
-              }}
-            />
-          </>
-        )}
-      </div>
-
       <div className="grid">
         {Array.from({ length: uploadLimit }).map((_, i) => {
           const p = myUploads[i];
@@ -326,17 +344,25 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
             const trimmed = draft.trim();
             const saved = (p.comment || "").trim();
             const canSave = trimmed.length > 0 && trimmed !== saved;
+            const isDeleting = !!deletingIds[p.id];
             return (
               <div key={p.id} className="slot filled">
                 <div className="slot-image">
                   <img src={p.url} alt="" />
+                  {isDeleting && (
+                    <div className="slot-overlay">
+                      <span className="spinner" />
+                      <span className="slot-label">Deleting</span>
+                    </div>
+                  )}
                   <button
                     className="delete-btn"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(p.id);
+                      requestDelete(p.id);
                     }}
                     title="Delete photo"
+                    disabled={isDeleting}
                   >
                     X
                   </button>
@@ -346,6 +372,7 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
                     rows={2}
                     placeholder="Write a comment"
                     value={draft}
+                    disabled={isDeleting}
                     onChange={(e) =>
                       setCommentDrafts((prev) => ({
                         ...prev,
@@ -353,7 +380,7 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
                       }))
                     }
                   />
-                  {canSave && (
+                  {canSave && !isDeleting && (
                     <button
                       type="button"
                       className="comment-save"
@@ -395,6 +422,37 @@ export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
             </div>
           );
         })}
+      </div>
+
+      <div className="upload-cta">
+        {myUploads.length >= uploadLimit ? (
+          <div className="limit-warning">
+            Max limit reached. Delete a photo if you want to upload a new one.
+          </div>
+        ) : (
+          <>
+            <button
+              className="upload-btn"
+              onClick={() => pickerRef.current?.click()}
+              disabled={isUploading}
+              type="button"
+            >
+              {isUploading ? "Uploading..." : "Upload from device"}
+            </button>
+            <input
+              ref={pickerRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                e.target.value = "";
+                uploadFiles(files);
+              }}
+            />
+          </>
+        )}
       </div>
     </section>
   );

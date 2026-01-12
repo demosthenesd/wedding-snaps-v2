@@ -479,7 +479,7 @@ app.get("/events/:eventId/my-uploads", async (req, res) => {
     eventId: ev._id,
     deviceHash,
   })
-    .sort({ createdAt: -1 })
+    .sort({ createdAt: 1 })
     .lean();
 
   const base = apiBaseFromReq(req);
