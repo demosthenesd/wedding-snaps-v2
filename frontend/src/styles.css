@@ -924,3 +924,45 @@ body {
   font-size: 10px;
   margin: 0 0 6px;
 }
+
+@media (min-width: 768px) {
+  .album {
+    max-width: 960px;
+  }
+
+  .album-content {
+    padding: 0 24px 24px;
+  }
+
+  .personal-grid {
+    padding: 24px 0;
+  }
+
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .stream-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panel-card {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 1200px) {
+  .album {
+    max-width: 1200px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .stream-grid.grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
