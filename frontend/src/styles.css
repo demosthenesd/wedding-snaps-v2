@@ -861,6 +861,7 @@ body {
   background: black;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
 }
 
 .camera-video {
@@ -943,6 +944,28 @@ body {
 .camera-controls .camera-action.secondary {
   background: transparent;
   color: var(--gold);
+}
+
+@media (min-width: 900px) {
+  .camera-modal {
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px 24px;
+    gap: 16px;
+  }
+
+  .camera-video {
+    flex: 0 1 auto;
+    width: min(900px, 92vw);
+    height: min(600px, 70vh);
+    border-radius: 18px;
+    background: black;
+  }
+
+  .camera-filters,
+  .camera-controls {
+    width: min(900px, 92vw);
+  }
 }
 .qrEyebrow {
   font-size: 10px;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CAMERA_FILTERS } from "./cameraFilters";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ||
@@ -45,36 +46,12 @@ async function compressImage(file, maxBytes = 100_000, maxDim = 1600) {
 
 /* ---------------- Camera ---------------- */
 
-const FILTERS = [
-  { id: "none", name: "Natural", css: "none" },
-  {
-    id: "nostalgia",
-    name: "Nostalgia",
-    css: "sepia(0.4) contrast(1.1) brightness(1.1)",
-  },
-  {
-    id: "noir",
-    name: "Noir",
-    css: "grayscale(1) contrast(1.2) brightness(0.9)",
-  },
-  {
-    id: "golden",
-    name: "Golden",
-    css: "sepia(0.2) saturate(1.6) brightness(1.05)",
-  },
-  {
-    id: "ethereal",
-    name: "Ethereal",
-    css: "brightness(1.15) saturate(0.7) contrast(0.85)",
-  },
-];
-
 function Camera({ onCapture, onClose, isUploading }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const startedRef = useRef(false);
-  const [activeFilter, setActiveFilter] = useState(FILTERS[0]);
+  const [activeFilter, setActiveFilter] = useState(CAMERA_FILTERS[0]);
   const [previewUrl, setPreviewUrl] = useState("");
   const previewBlobRef = useRef(null);
 
@@ -218,7 +195,7 @@ function Camera({ onCapture, onClose, isUploading }) {
       </button>
 
       <div className="camera-filters">
-        {FILTERS.map((f) => (
+        {CAMERA_FILTERS.map((f) => (
           <button
             key={f.id}
             className={f.id === activeFilter.id ? "active" : ""}
