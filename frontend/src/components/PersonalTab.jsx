@@ -72,22 +72,55 @@ const FILTERS = [
 function Camera({ onCapture, onClose, isUploading }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [stream, setStream] = useState(null);
+  const streamRef = useRef(null);
+  const startedRef = useRef(false);
   const [activeFilter, setActiveFilter] = useState(FILTERS[0]);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const previewBlobRef = useRef(null);
 
   const startCamera = useCallback(async () => {
+    if (startedRef.current) return;
+    startedRef.current = true;
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-        audio: false,
-      });
+      if (!navigator.mediaDevices?.getUserMedia) {
+        alert("Camera not available. Use HTTPS or localhost.");
+        onClose();
+        return;
+      }
 
-      setStream(mediaStream);
+      let mediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false,
+        });
+      } catch (err) {
+        if (err?.name === "OverconstrainedError" || err?.name === "NotFoundError") {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        try {
+          await videoRef.current.play();
+        } catch (err) {
+          if (err?.name !== "AbortError") {
+            throw err;
+          }
+        }
       }
     } catch (err) {
-      alert("Camera access denied");
+      console.error("Camera error:", err);
+      if (err?.name === "AbortError") return;
+      const reason = err?.name ? ` (${err.name})` : "";
+      alert(`Camera access denied${reason}`);
       onClose();
     }
   }, [onClose]);
@@ -95,9 +128,11 @@ function Camera({ onCapture, onClose, isUploading }) {
   useEffect(() => {
     startCamera();
     return () => {
-      stream?.getTracks().forEach((t) => t.stop());
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      startedRef.current = false;
     };
-  }, [startCamera, stream]);
+  }, [startCamera]);
 
   const snap = () => {
     const video = videoRef.current;
@@ -113,28 +148,73 @@ function Camera({ onCapture, onClose, isUploading }) {
 
     canvas.toBlob(
       (blob) => {
-        const file = new File([blob], "camera.jpg", {
-          type: "image/jpeg",
+        if (!blob) return;
+        previewBlobRef.current = blob;
+        setPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(blob);
         });
-        onCapture(file);
       },
       "image/jpeg",
       0.9
     );
   };
 
+  const retake = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewBlobRef.current = null;
+    setPreviewUrl("");
+  };
+
+  const confirmUpload = () => {
+    const blob = previewBlobRef.current;
+    if (!blob) return;
+    const file = new File([blob], "camera.jpg", { type: "image/jpeg" });
+    onCapture(file);
+  };
+
+  useEffect(() => {
+    if (previewUrl) return;
+    if (!videoRef.current) return;
+    const stream = streamRef.current;
+    if (!stream) {
+      startCamera();
+      return;
+    }
+    videoRef.current.srcObject = stream;
+    videoRef.current.play().catch((err) => {
+      if (err?.name !== "AbortError") console.error("Camera play error:", err);
+    });
+  }, [previewUrl, startCamera]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   return (
     <div className="camera-modal">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        style={{ filter: activeFilter.css }}
-        className="camera-video"
-      />
+      {previewUrl ? (
+        <img
+          src={previewUrl}
+          alt="Captured"
+          className="camera-video"
+          style={{ filter: activeFilter.css }}
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          style={{ filter: activeFilter.css }}
+          className="camera-video"
+        />
+      )}
 
-      <button className="camera-close" onClick={onClose}>
-        ƒo
+      <button className="camera-close" onClick={onClose} aria-label="Close">
+        X
       </button>
 
       <div className="camera-filters">
@@ -151,9 +231,30 @@ function Camera({ onCapture, onClose, isUploading }) {
       </div>
 
       <div className="camera-controls">
-        <button onClick={snap} disabled={isUploading}>
-          ƒ-?
-        </button>
+        {previewUrl ? (
+          <>
+            <button
+              onClick={retake}
+              disabled={isUploading}
+              aria-label="Retake"
+              className="camera-action secondary"
+            >
+              Retake
+            </button>
+            <button
+              onClick={confirmUpload}
+              disabled={isUploading}
+              aria-label="Upload"
+              className="camera-action primary"
+            >
+              Upload
+            </button>
+          </>
+        ) : (
+          <button onClick={snap} disabled={isUploading} aria-label="Capture">
+            ●
+          </button>
+        )}
       </div>
 
       <canvas ref={canvasRef} hidden />
