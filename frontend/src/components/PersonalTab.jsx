@@ -237,34 +237,68 @@ function Camera({ onCapture, onClose, isUploading }) {
   );
 }
 
-export default function PersonalTab({ eventId, uploadLimit, uploaderName }) {
+export default function PersonalTab({
+  eventId,
+  uploadLimit,
+  uploaderName,
+  isActive,
+}) {
   const [myUploads, setMyUploads] = useState([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [commentDrafts, setCommentDrafts] = useState({});
   const [deletingIds, setDeletingIds] = useState({});
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const pickerRef = useRef(null);
+  const cacheKey = `wedding_snaps_personal_cache_${eventId}`;
 
   const fetchMine = async () => {
     const r = await fetch(`${API_BASE}/events/${eventId}/my-uploads`, {
       headers: { "X-Device-Id": getDeviceId() },
     });
     const d = await r.json();
-    if (d.ok) setMyUploads(d.items);
+    if (d.ok) {
+      setMyUploads(d.items);
+      setHasLoaded(true);
+      try {
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify({ items: d.items })
+        );
+      } catch {
+        // Ignore cache failures (e.g., storage quota).
+      }
+    }
   };
 
   useEffect(() => {
-    fetchMine();
-  }, [eventId]);
+    if (!eventId || hasLoaded) return;
+    let loaded = false;
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed?.items)) {
+          setMyUploads(parsed.items);
+          setHasLoaded(true);
+          loaded = true;
+        }
+      }
+    } catch {
+      // Ignore cache failures.
+    }
+    if (!loaded && isActive) fetchMine();
+  }, [eventId, isActive, cacheKey, hasLoaded]);
 
   useEffect(() => {
+    if (!isActive) return;
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       fetchMine();
     }, 15000);
     return () => clearInterval(timer);
-  }, [eventId]);
+  }, [eventId, isActive]);
 
   useEffect(() => {
     const nextDrafts = {};

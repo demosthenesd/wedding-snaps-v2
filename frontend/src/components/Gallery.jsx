@@ -171,15 +171,26 @@ export default function Gallery({ eventId }) {
         </div>
       )}
 
-      {tab === "personal" && isDriveConnected && (
-        <PersonalTab
-          eventId={eventId}
-          uploadLimit={uploadLimit}
-          uploaderName={uploaderName}
-        />
+      {isDriveConnected && (
+        <div
+          className={`tab-panel ${tab === "personal" ? "" : "hidden"}`}
+          aria-hidden={tab !== "personal"}
+        >
+          <PersonalTab
+            eventId={eventId}
+            uploadLimit={uploadLimit}
+            uploaderName={uploaderName}
+            isActive={tab === "personal"}
+          />
+        </div>
       )}
 
-      {tab === "stream" && <StreamTab eventId={eventId} isActive />}
+      <div
+        className={`tab-panel ${tab === "stream" ? "" : "hidden"}`}
+        aria-hidden={tab !== "stream"}
+      >
+        <StreamTab eventId={eventId} isActive={tab === "stream"} />
+      </div>
     </div>
   );
 }

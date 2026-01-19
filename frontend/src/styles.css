@@ -126,6 +126,18 @@ body {
   background: var(--gold);
 }
 
+/* ---------- Tab Panels ---------- */
+
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.tab-panel.hidden {
+  display: none;
+}
+
 /* ---------- Personal Grid ---------- */
 
 .personal-grid {
