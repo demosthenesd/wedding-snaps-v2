@@ -3,7 +3,7 @@ import QrModal from "./QrModal";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ||
-  "https://candidsnaps.netlify.app";
+  "https://candidsnaps.onrender.com";
 
 export default function Landing() {
   const [name, setName] = useState("");
