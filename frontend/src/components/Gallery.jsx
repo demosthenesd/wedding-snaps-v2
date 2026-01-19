@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import PersonalTab from "./PersonalTab";
 import StreamTab from "./StreamTab";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://localhost:8080";
+const API_BASE = "https://candidsnaps.onrender.com";
 
 function buildGuestName() {
   const id = crypto.randomUUID().slice(0, 6).toUpperCase();

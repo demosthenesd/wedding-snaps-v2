@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://localhost:8080";
+const API_BASE = "https://candidsnaps.onrender.com";
 
 export default function StreamTab({ eventId, isActive }) {
   const [allUploads, setAllUploads] = useState([]);

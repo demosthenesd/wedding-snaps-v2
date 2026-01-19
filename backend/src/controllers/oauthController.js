@@ -39,6 +39,6 @@ export async function handleOAuthCallback(req, res) {
   ev.googleRefreshToken = tokens.refresh_token;
   await ev.save();
 
-  const back = `${process.env.PUBLIC_BASE_URL || "http://localhost:5173"}/?e=${ev._id.toString()}`;
+  const back = `https://candidsnaps.netlify.app/?e=${ev._id.toString()}`;
   res.redirect(back);
 }

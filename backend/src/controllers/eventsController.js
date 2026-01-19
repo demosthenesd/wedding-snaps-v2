@@ -38,7 +38,7 @@ export async function createEvent(req, res) {
   res.json({
     ok: true,
     eventId: ev._id.toString(),
-    publicUrl: `${process.env.PUBLIC_BASE_URL || ""}/?e=${ev._id.toString()}`,
+    publicUrl: `https://candidsnaps.netlify.app/?e=${ev._id.toString()}`,
     connectUrl: `https://candidsnaps.onrender.com/auth/google/start?eventId=${ev._id.toString()}`,
     driveFolderId: ev.driveFolderId, // helpful while testing
   });

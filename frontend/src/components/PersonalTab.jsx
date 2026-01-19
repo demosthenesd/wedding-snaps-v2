@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CAMERA_FILTERS } from "./cameraFilters";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://localhost:8080";
+const API_BASE = "https://candidsnaps.onrender.com";
 
 /* ---------------- Helpers ---------------- */
 

@@ -5,11 +5,13 @@ import eventsRoutes from "./routes/events.js";
 import oauthRoutes from "./routes/oauth.js";
 import { healthCheck } from "./controllers/eventsController.js";
 
+const PUBLIC_BASE_URL = "https://candidsnaps.netlify.app";
+
 const app = express();
 
 app.use(
   cors({
-    origin: process.env.PUBLIC_BASE_URL || true,
+    origin: PUBLIC_BASE_URL,
     credentials: false,
   })
 );
