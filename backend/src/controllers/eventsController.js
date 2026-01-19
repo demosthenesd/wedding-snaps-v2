@@ -39,7 +39,7 @@ export async function createEvent(req, res) {
     ok: true,
     eventId: ev._id.toString(),
     publicUrl: `${process.env.PUBLIC_BASE_URL || ""}/?e=${ev._id.toString()}`,
-    connectUrl: `${apiBaseFromReq(req)}/auth/google/start?eventId=${ev._id.toString()}`,
+    connectUrl: `https://candidsnaps.onrender.com/auth/google/start?eventId=${ev._id.toString()}`,
     driveFolderId: ev.driveFolderId, // helpful while testing
   });
 }
@@ -131,7 +131,7 @@ export async function uploadFile(req, res) {
     return res.status(400).json({
       ok: false,
       error: "Drive not connected for this event yet. Owner must connect Google Drive first.",
-      connectUrl: `${apiBaseFromReq(req)}/auth/google/start?eventId=${ev._id.toString()}`,
+      connectUrl: `https://candidsnaps.onrender.com/auth/google/start?eventId=${ev._id.toString()}`,
     });
   }
 
