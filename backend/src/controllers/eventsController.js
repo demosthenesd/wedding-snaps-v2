@@ -7,7 +7,7 @@ import {
   hasServiceAccount,
 } from "../services/google.js";
 import { apiBaseFromReq } from "../utils/apiBase.js";
-import { API_PUBLIC_BASE_URL, PUBLIC_BASE_URL } from "../config.js";
+import { API_PUBLIC_BASE_URL, CORS_ORIGINS, PUBLIC_BASE_URL } from "../config.js";
 import { getDeviceHash } from "../utils/device.js";
 
 const TEST_DRIVE_FOLDER_ID = "1b9PoSR_UxREh5QuCOwR2i7hm3V5Y0XMt";
@@ -30,6 +30,8 @@ export function healthCheck(_req, res) {
 
 export async function createEvent(req, res) {
   const { name, driveFolderId } = req.body || {};
+  const origin = req.get("origin");
+  const publicBase = origin && CORS_ORIGINS.includes(origin) ? origin : PUBLIC_BASE_URL;
 
   const ev = await Event.create({
     name: name || "Wedding",
@@ -39,7 +41,7 @@ export async function createEvent(req, res) {
   res.json({
     ok: true,
     eventId: ev._id.toString(),
-    publicUrl: `${PUBLIC_BASE_URL}/?e=${ev._id.toString()}`,
+    publicUrl: `${publicBase}/?e=${ev._id.toString()}`,
     connectUrl: `${API_PUBLIC_BASE_URL}/auth/google/start?eventId=${ev._id.toString()}`,
     driveFolderId: ev.driveFolderId, // helpful while testing
   });
