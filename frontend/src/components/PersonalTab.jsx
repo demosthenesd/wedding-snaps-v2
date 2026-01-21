@@ -63,14 +63,28 @@ function Camera({ onCapture, onClose, isUploading }) {
         return;
       }
 
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+
       let mediaStream;
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode },
+          video: { facingMode: { ideal: facingMode } },
           audio: false,
         });
       } catch (err) {
-        if (err?.name === "OverconstrainedError" || err?.name === "NotFoundError") {
+        if (err?.name === "NotReadableError") {
+          // Retry with a generic constraint if the device is busy.
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        } else if (
+          err?.name === "OverconstrainedError" ||
+          err?.name === "NotFoundError"
+        ) {
           mediaStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: false,
