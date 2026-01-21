@@ -4,13 +4,17 @@ import rateLimit from "express-rate-limit";
 import eventsRoutes from "./routes/events.js";
 import oauthRoutes from "./routes/oauth.js";
 import { healthCheck } from "./controllers/eventsController.js";
-import { PUBLIC_BASE_URL } from "./config.js";
+import { CORS_ORIGINS } from "./config.js";
 
 const app = express();
 
 app.use(
   cors({
-    origin: PUBLIC_BASE_URL,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (CORS_ORIGINS.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: false,
   })
 );
