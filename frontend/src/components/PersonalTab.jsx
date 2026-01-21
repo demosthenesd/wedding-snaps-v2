@@ -51,6 +51,7 @@ function Camera({ onCapture, onClose, isUploading }) {
   const startedRef = useRef(false);
   const [activeFilter, setActiveFilter] = useState(CAMERA_FILTERS[0]);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [facingMode, setFacingMode] = useState("environment");
   const previewBlobRef = useRef(null);
 
   const startCamera = useCallback(async () => {
@@ -66,7 +67,7 @@ function Camera({ onCapture, onClose, isUploading }) {
       let mediaStream;
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: { facingMode },
           audio: false,
         });
       } catch (err) {
@@ -98,7 +99,7 @@ function Camera({ onCapture, onClose, isUploading }) {
       alert(`Camera access denied${reason}`);
       onClose();
     }
-  }, [onClose]);
+  }, [facingMode, onClose]);
 
   useEffect(() => {
     startCamera();
@@ -148,6 +149,20 @@ function Camera({ onCapture, onClose, isUploading }) {
     onCapture(file);
   };
 
+  const toggleCamera = () => {
+    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
+  };
+
+  useEffect(() => {
+    if (previewUrl) return;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    startedRef.current = false;
+    startCamera();
+  }, [facingMode, previewUrl, startCamera]);
+
   useEffect(() => {
     if (previewUrl) return;
     if (!videoRef.current) return;
@@ -191,6 +206,17 @@ function Camera({ onCapture, onClose, isUploading }) {
       <button className="camera-close" onClick={onClose} aria-label="Close">
         X
       </button>
+
+      {!previewUrl && (
+        <button
+          className="camera-switch"
+          onClick={toggleCamera}
+          aria-label="Switch camera"
+          type="button"
+        >
+          ↻
+        </button>
+      )}
 
       <div className="camera-filters">
         {CAMERA_FILTERS.map((f) => (
