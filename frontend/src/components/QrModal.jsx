@@ -1,16 +1,27 @@
 import { useEffect, useRef } from "react";
-import QRCode from "qrcode";
 
 export default function QrModal({ url, onClose }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, url, {
-        width: 200,
-        margin: 1,
-      });
-    }
+    let isActive = true;
+    const draw = async () => {
+      if (!canvasRef.current) return;
+      try {
+        const { default: QRCode } = await import("qrcode");
+        if (!isActive || !canvasRef.current) return;
+        QRCode.toCanvas(canvasRef.current, url, {
+          width: 200,
+          margin: 1,
+        });
+      } catch (err) {
+        console.error("QR render failed:", err);
+      }
+    };
+    draw();
+    return () => {
+      isActive = false;
+    };
   }, [url]);
 
   const copy = async () => {

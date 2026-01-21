@@ -15,6 +15,11 @@ export default function StreamTab({ eventId, isActive }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  const fetchControllerRef = useRef(null);
+  const fetchInFlightRef = useRef(false);
+  const checkControllerRef = useRef(null);
+  const checkInFlightRef = useRef(false);
+  const justFetchedRef = useRef(false);
   const cacheKey = `wedding_snaps_stream_cache_${eventId}`;
 
   useEffect(() => {
@@ -30,23 +35,44 @@ export default function StreamTab({ eventId, isActive }) {
   };
 
   const fetchAll = async () => {
-    const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`);
-    const d = await r.json();
-    if (d.ok) {
-      setAllUploads(d.items);
-      setStreamLoaded(true);
-      setLatestSeenAt(latestStampFromItems(d.items));
-      setLatestCount(d.items?.length || 0);
-      setHasNewUploads(false);
-      try {
-        localStorage.setItem(
-          cacheKey,
-          JSON.stringify({
-            items: d.items,
-          })
-        );
-      } catch {
-        // Ignore cache failures (e.g., storage quota).
+    if (!eventId) return;
+    if (fetchInFlightRef.current && fetchControllerRef.current) {
+      fetchControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    fetchControllerRef.current = controller;
+    fetchInFlightRef.current = true;
+    try {
+      const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`, {
+        signal: controller.signal,
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setAllUploads(d.items);
+        setStreamLoaded(true);
+        setLatestSeenAt(latestStampFromItems(d.items));
+        setLatestCount(d.items?.length || 0);
+        setHasNewUploads(false);
+        justFetchedRef.current = true;
+        try {
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+              items: d.items,
+            })
+          );
+        } catch {
+          // Ignore cache failures (e.g., storage quota).
+        }
+      }
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        console.error("Fetch stream failed:", err);
+      }
+    } finally {
+      if (fetchControllerRef.current === controller) {
+        fetchControllerRef.current = null;
+        fetchInFlightRef.current = false;
       }
     }
   };
@@ -78,8 +104,14 @@ export default function StreamTab({ eventId, isActive }) {
 
   const checkForNewUploads = async () => {
     if (!streamLoaded) return false;
+    if (checkInFlightRef.current) return false;
+    checkInFlightRef.current = true;
+    const controller = new AbortController();
+    checkControllerRef.current = controller;
     try {
-      const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`);
+      const r = await fetch(`${API_BASE}/events/${eventId}/uploads?limit=100`, {
+        signal: controller.signal,
+      });
       const d = await r.json();
       if (!d.ok) return;
       const newestTime = latestStampFromItems(d.items);
@@ -97,12 +129,21 @@ export default function StreamTab({ eventId, isActive }) {
     } catch {
       // Ignore check errors to avoid user disruption.
       return false;
+    } finally {
+      if (checkControllerRef.current === controller) {
+        checkControllerRef.current = null;
+        checkInFlightRef.current = false;
+      }
     }
   };
 
   useEffect(() => {
     if (!isActive || !streamLoaded) return;
     const checkAndUpdate = async () => {
+      if (justFetchedRef.current) {
+        justFetchedRef.current = false;
+        return;
+      }
       const hasUpdates = await checkForNewUploads();
       if (hasUpdates) {
         fetchAll();
@@ -212,7 +253,7 @@ export default function StreamTab({ eventId, isActive }) {
               >
                 {allUploads.map((photo) => (
                   <div key={photo.id} className="stream-modal-slide">
-                    <img src={photo.url} alt="" />
+                    <img src={photo.url} alt="" loading="lazy" decoding="async" />
                   </div>
                 ))}
               </div>
@@ -333,6 +374,8 @@ export default function StreamTab({ eventId, isActive }) {
                 <img
                   src={photo.url}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   style={{
                     width: "100%",
                     height: "100%",

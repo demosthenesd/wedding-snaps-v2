@@ -251,23 +251,44 @@ export default function PersonalTab({
   const [deletingIds, setDeletingIds] = useState({});
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const pickerRef = useRef(null);
+  const fetchControllerRef = useRef(null);
+  const fetchInFlightRef = useRef(false);
   const cacheKey = `wedding_snaps_personal_cache_${eventId}`;
 
   const fetchMine = async () => {
-    const r = await fetch(`${API_BASE}/events/${eventId}/my-uploads`, {
-      headers: { "X-Device-Id": getDeviceId() },
-    });
-    const d = await r.json();
-    if (d.ok) {
-      setMyUploads(d.items);
-      setHasLoaded(true);
-      try {
-        localStorage.setItem(
-          cacheKey,
-          JSON.stringify({ items: d.items })
-        );
-      } catch {
-        // Ignore cache failures (e.g., storage quota).
+    if (!eventId) return;
+    if (fetchInFlightRef.current && fetchControllerRef.current) {
+      fetchControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    fetchControllerRef.current = controller;
+    fetchInFlightRef.current = true;
+    try {
+      const r = await fetch(`${API_BASE}/events/${eventId}/my-uploads`, {
+        headers: { "X-Device-Id": getDeviceId() },
+        signal: controller.signal,
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setMyUploads(d.items);
+        setHasLoaded(true);
+        try {
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({ items: d.items })
+          );
+        } catch {
+          // Ignore cache failures (e.g., storage quota).
+        }
+      }
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        console.error("Fetch uploads failed:", err);
+      }
+    } finally {
+      if (fetchControllerRef.current === controller) {
+        fetchControllerRef.current = null;
+        fetchInFlightRef.current = false;
       }
     }
   };
@@ -308,7 +329,10 @@ export default function PersonalTab({
     setCommentDrafts(nextDrafts);
   }, [myUploads]);
 
-  const uploadFile = async (file, { manageState = true } = {}) => {
+  const uploadFile = async (
+    file,
+    { manageState = true, skipRefresh = false } = {}
+  ) => {
     if (manageState) setIsUploading(true);
     try {
       const compressed = await compressImage(file);
@@ -327,7 +351,9 @@ export default function PersonalTab({
       const d = await res.json();
       if (!d.ok) throw new Error();
 
-      await fetchMine();
+      if (!skipRefresh) {
+        await fetchMine();
+      }
     } catch {
       alert("Upload failed");
     } finally {
@@ -340,8 +366,9 @@ export default function PersonalTab({
     setIsUploading(true);
     try {
       for (const file of files) {
-        await uploadFile(file, { manageState: false });
+        await uploadFile(file, { manageState: false, skipRefresh: true });
       }
+      await fetchMine();
     } finally {
       setIsUploading(false);
     }
@@ -473,7 +500,7 @@ export default function PersonalTab({
             return (
               <div key={p.id} className="slot filled">
                 <div className="slot-image">
-                  <img src={p.url} alt="" />
+                  <img src={p.url} alt="" loading="lazy" decoding="async" />
                   {isDeleting && (
                     <div className="slot-overlay">
                       <span className="spinner" />
