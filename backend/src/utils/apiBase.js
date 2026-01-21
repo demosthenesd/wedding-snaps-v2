@@ -1,6 +1,5 @@
 export function apiBaseFromReq(req) {
-  // Lets images load even if API_PUBLIC_BASE_URL not set
-  const envBase = 'https://candidsnaps.onrender.com'; // optional: set e.g. https://api.yourdomain.com
+  const envBase = process.env.API_PUBLIC_BASE_URL;
   if (envBase) return envBase.replace(/\/$/, "");
   const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
   const host = req.headers["x-forwarded-host"] || req.get("host");

@@ -4,8 +4,7 @@ import rateLimit from "express-rate-limit";
 import eventsRoutes from "./routes/events.js";
 import oauthRoutes from "./routes/oauth.js";
 import { healthCheck } from "./controllers/eventsController.js";
-
-const PUBLIC_BASE_URL = "https://candidsnaps.netlify.app";
+import { PUBLIC_BASE_URL } from "./config.js";
 
 const app = express();
 

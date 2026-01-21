@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CAMERA_FILTERS } from "./cameraFilters";
-
-const API_BASE = "https://candidsnaps.onrender.com";
+import { API_BASE } from "../config";
 
 /* ---------------- Helpers ---------------- */
 

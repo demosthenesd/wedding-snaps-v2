@@ -1,5 +1,6 @@
 import { Event } from "../models/Event.js";
 import { getOauthClient } from "../services/google.js";
+import { PUBLIC_BASE_URL } from "../config.js";
 
 export async function startGoogleAuth(req, res) {
   const { eventId } = req.query;
@@ -39,6 +40,6 @@ export async function handleOAuthCallback(req, res) {
   ev.googleRefreshToken = tokens.refresh_token;
   await ev.save();
 
-  const back = `https://candidsnaps.netlify.app/?e=${ev._id.toString()}`;
+  const back = `${PUBLIC_BASE_URL}/?e=${ev._id.toString()}`;
   res.redirect(back);
 }

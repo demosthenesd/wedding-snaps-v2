@@ -7,6 +7,7 @@ import {
   hasServiceAccount,
 } from "../services/google.js";
 import { apiBaseFromReq } from "../utils/apiBase.js";
+import { API_PUBLIC_BASE_URL, PUBLIC_BASE_URL } from "../config.js";
 import { getDeviceHash } from "../utils/device.js";
 
 const TEST_DRIVE_FOLDER_ID = "1b9PoSR_UxREh5QuCOwR2i7hm3V5Y0XMt";
@@ -38,8 +39,8 @@ export async function createEvent(req, res) {
   res.json({
     ok: true,
     eventId: ev._id.toString(),
-    publicUrl: `https://candidsnaps.netlify.app/?e=${ev._id.toString()}`,
-    connectUrl: `https://candidsnaps.onrender.com/auth/google/start?eventId=${ev._id.toString()}`,
+    publicUrl: `${PUBLIC_BASE_URL}/?e=${ev._id.toString()}`,
+    connectUrl: `${API_PUBLIC_BASE_URL}/auth/google/start?eventId=${ev._id.toString()}`,
     driveFolderId: ev.driveFolderId, // helpful while testing
   });
 }
@@ -131,7 +132,7 @@ export async function uploadFile(req, res) {
     return res.status(400).json({
       ok: false,
       error: "Drive not connected for this event yet. Owner must connect Google Drive first.",
-      connectUrl: `https://candidsnaps.onrender.com/auth/google/start?eventId=${ev._id.toString()}`,
+      connectUrl: `${API_PUBLIC_BASE_URL}/auth/google/start?eventId=${ev._id.toString()}`,
     });
   }
 

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import QrModal from "./QrModal";
-
-const API_BASE =  "https://candidsnaps.onrender.com";
+import { API_BASE } from "../config";
 
 export default function Landing() {
   const [name, setName] = useState("");

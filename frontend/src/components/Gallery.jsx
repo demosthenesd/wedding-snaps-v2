@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import PersonalTab from "./PersonalTab";
 import StreamTab from "./StreamTab";
-
-const API_BASE = "https://candidsnaps.onrender.com";
+import { API_BASE } from "../config";
 
 function buildGuestName() {
   const id = crypto.randomUUID().slice(0, 6).toUpperCase();

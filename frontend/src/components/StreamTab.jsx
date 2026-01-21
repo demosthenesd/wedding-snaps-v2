@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
-const API_BASE = "https://candidsnaps.onrender.com";
+import { API_BASE } from "../config";
 
 export default function StreamTab({ eventId, isActive }) {
   const [allUploads, setAllUploads] = useState([]);
