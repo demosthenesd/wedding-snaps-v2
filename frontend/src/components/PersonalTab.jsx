@@ -50,10 +50,15 @@ function Camera({ onCapture, onClose, isUploading }) {
   const startedRef = useRef(false);
   const isStartingRef = useRef(false);
   const startPromiseRef = useRef(null);
+  const onCloseRef = useRef(onClose);
   const [activeFilter, setActiveFilter] = useState(CAMERA_FILTERS[0]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [facingMode, setFacingMode] = useState("environment");
   const previewBlobRef = useRef(null);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const startCamera = useCallback(async () => {
     if (isStartingRef.current) return startPromiseRef.current;
@@ -64,7 +69,7 @@ function Camera({ onCapture, onClose, isUploading }) {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         alert("Camera not available. Use HTTPS or localhost.");
-        onClose();
+        onCloseRef.current?.();
         return;
       }
 
@@ -113,14 +118,14 @@ function Camera({ onCapture, onClose, isUploading }) {
       if (err?.name === "AbortError") return;
       const reason = err?.name ? ` (${err.name})` : "";
       alert(`Camera access denied${reason}`);
-      onClose();
+      onCloseRef.current?.();
     } finally {
       isStartingRef.current = false;
       startPromiseRef.current = null;
     }
     })();
     return startPromiseRef.current;
-  }, [facingMode, onClose]);
+  }, [facingMode]);
 
   useEffect(() => {
     startCamera();
@@ -141,7 +146,14 @@ function Camera({ onCapture, onClose, isUploading }) {
 
     const ctx = canvas.getContext("2d");
     ctx.filter = activeFilter.css;
-    ctx.drawImage(video, 0, 0);
+    if (facingMode === "user") {
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, -canvas.width, 0);
+      ctx.restore();
+    } else {
+      ctx.drawImage(video, 0, 0);
+    }
 
     canvas.toBlob(
       (blob) => {
@@ -228,7 +240,10 @@ function Camera({ onCapture, onClose, isUploading }) {
           autoPlay
           muted
           playsInline
-          style={{ filter: activeFilter.css }}
+          style={{
+            filter: activeFilter.css,
+            transform: facingMode === "user" ? "scaleX(-1)" : "none",
+          }}
           className="camera-video"
         />
       )}
@@ -310,6 +325,7 @@ export default function PersonalTab({
   const fetchControllerRef = useRef(null);
   const fetchInFlightRef = useRef(false);
   const cacheKey = `wedding_snaps_personal_cache_${eventId}`;
+  const handleCloseCamera = useCallback(() => setShowCamera(false), []);
 
   const fetchMine = async () => {
     if (!eventId) return;
@@ -534,7 +550,7 @@ export default function PersonalTab({
       )}
       {showCamera && (
         <Camera
-          onClose={() => setShowCamera(false)}
+          onClose={handleCloseCamera}
           onCapture={(file) => {
             setShowCamera(false);
             uploadFile(file);
