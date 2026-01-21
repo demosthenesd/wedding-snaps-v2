@@ -899,15 +899,15 @@ body {
 
 .camera-switch {
   position: absolute;
-  bottom: 120px;
-  right: 16px;
+  bottom: 32px;
+  right: 24px;
   background: rgba(0, 0, 0, 0.5);
   color: white;
   border: none;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  font-size: 18px;
+  width: 52px;
+  height: 52px;
+  font-size: 22px;
   cursor: pointer;
 }
 
