@@ -48,24 +48,24 @@ function Camera({ onCapture, onClose, isUploading }) {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const startedRef = useRef(false);
+  const isStartingRef = useRef(false);
+  const startPromiseRef = useRef(null);
   const [activeFilter, setActiveFilter] = useState(CAMERA_FILTERS[0]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [facingMode, setFacingMode] = useState("environment");
   const previewBlobRef = useRef(null);
 
   const startCamera = useCallback(async () => {
+    if (isStartingRef.current) return startPromiseRef.current;
     if (startedRef.current) return;
+    isStartingRef.current = true;
     startedRef.current = true;
+    startPromiseRef.current = (async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         alert("Camera not available. Use HTTPS or localhost.");
         onClose();
         return;
-      }
-
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
       }
 
       let mediaStream;
@@ -94,6 +94,9 @@ function Camera({ onCapture, onClose, isUploading }) {
         }
       }
 
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
       streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -111,7 +114,12 @@ function Camera({ onCapture, onClose, isUploading }) {
       const reason = err?.name ? ` (${err.name})` : "";
       alert(`Camera access denied${reason}`);
       onClose();
+    } finally {
+      isStartingRef.current = false;
+      startPromiseRef.current = null;
     }
+    })();
+    return startPromiseRef.current;
   }, [facingMode, onClose]);
 
   useEffect(() => {
@@ -168,23 +176,32 @@ function Camera({ onCapture, onClose, isUploading }) {
 
   useEffect(() => {
     if (previewUrl) return;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    startedRef.current = false;
-    startCamera();
+    const switchCamera = async () => {
+      const track = streamRef.current?.getVideoTracks?.()[0];
+      if (track?.applyConstraints) {
+        try {
+          await track.applyConstraints({ facingMode: { ideal: facingMode } });
+          return;
+        } catch (err) {
+          if (err?.name !== "OverconstrainedError") {
+            console.warn("Facing mode switch failed, restarting camera:", err);
+          }
+        }
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      startedRef.current = false;
+      await startCamera();
+    };
+    switchCamera();
   }, [facingMode, previewUrl, startCamera]);
 
   useEffect(() => {
     if (previewUrl) return;
-    if (!videoRef.current) return;
-    const stream = streamRef.current;
-    if (!stream) {
-      startCamera();
-      return;
-    }
-    videoRef.current.srcObject = stream;
+    if (!videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
     videoRef.current.play().catch((err) => {
       if (err?.name !== "AbortError") console.error("Camera play error:", err);
     });
