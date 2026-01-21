@@ -40,6 +40,7 @@ export async function handleOAuthCallback(req, res) {
   ev.googleRefreshToken = tokens.refresh_token;
   await ev.save();
 
-  const back = `${PUBLIC_BASE_URL}/?e=${ev._id.toString()}`;
+  const base = ev.publicBase || PUBLIC_BASE_URL;
+  const back = `${base}/?e=${ev._id.toString()}`;
   res.redirect(back);
 }

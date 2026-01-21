@@ -13,6 +13,9 @@ const EventSchema = new mongoose.Schema({
   // Google OAuth tokens for the Drive owner (stored per event)
   googleRefreshToken: { type: String, default: "" },
 
+  // Frontend base URL used for redirects/links
+  publicBase: { type: String, default: "" },
+
   createdAt: { type: Date, default: Date.now },
 });
 

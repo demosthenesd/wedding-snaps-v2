@@ -36,6 +36,7 @@ export async function createEvent(req, res) {
   const ev = await Event.create({
     name: name || "Wedding",
     driveFolderId: driveFolderId || TEST_DRIVE_FOLDER_ID,
+    publicBase,
   });
 
   res.json({
