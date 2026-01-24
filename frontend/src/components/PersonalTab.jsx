@@ -370,7 +370,6 @@ export default function PersonalTab({
 
   useEffect(() => {
     if (!eventId || hasLoaded) return;
-    let loaded = false;
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
@@ -378,14 +377,17 @@ export default function PersonalTab({
         if (Array.isArray(parsed?.items)) {
           setMyUploads(parsed.items);
           setHasLoaded(true);
-          loaded = true;
         }
       }
     } catch {
       // Ignore cache failures.
     }
-    if (!loaded && isActive) fetchMine();
-  }, [eventId, isActive, cacheKey, hasLoaded]);
+  }, [eventId, cacheKey, hasLoaded]);
+
+  useEffect(() => {
+    if (!eventId || !isActive) return;
+    fetchMine();
+  }, [eventId, isActive]);
 
   useEffect(() => {
     if (!isActive) return;
