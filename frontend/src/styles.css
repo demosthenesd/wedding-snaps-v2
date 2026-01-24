@@ -73,7 +73,7 @@ body {
 
 .brand-title {
   font-family: "Cormorant Garamond", serif;
-  font-size: 30px;
+  font-size: 3rem;
   font-weight: 700;
   margin: 0;
 }
@@ -146,7 +146,7 @@ body {
 /* ---------- Personal Grid ---------- */
 
 .personal-grid {
-  padding: 18px 8px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -1068,10 +1068,6 @@ body {
 @media (min-width: 768px) {
   .album {
     max-width: 960px;
-  }
-
-  .personal-grid {
-    padding: 24px 0;
   }
 
   .grid {
