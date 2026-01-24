@@ -319,11 +319,14 @@ export default function PersonalTab({
   const [isUploading, setIsUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [savingCommentIds, setSavingCommentIds] = useState({});
+  const [savedCommentIds, setSavedCommentIds] = useState({});
   const [deletingIds, setDeletingIds] = useState({});
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const pickerRef = useRef(null);
   const fetchControllerRef = useRef(null);
   const fetchInFlightRef = useRef(false);
+  const savedTimersRef = useRef({});
   const cacheKey = `wedding_snaps_personal_cache_${eventId}`;
   const handleCloseCamera = useCallback(() => setShowCamera(false), []);
 
@@ -400,6 +403,14 @@ export default function PersonalTab({
     });
     setCommentDrafts(nextDrafts);
   }, [myUploads]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(savedTimersRef.current).forEach((timer) =>
+        clearTimeout(timer)
+      );
+    };
+  }, []);
 
   const uploadFile = async (
     file,
@@ -486,6 +497,8 @@ export default function PersonalTab({
   };
 
   const updateComment = async (uploadId, comment) => {
+    if (savingCommentIds[uploadId]) return;
+    setSavingCommentIds((prev) => ({ ...prev, [uploadId]: true }));
     try {
       const res = await fetch(
         `${API_BASE}/events/${eventId}/uploads/${uploadId}/comment`,
@@ -508,9 +521,27 @@ export default function PersonalTab({
         )
       );
       setCommentDrafts((prev) => ({ ...prev, [uploadId]: data.comment }));
+      setSavedCommentIds((prev) => ({ ...prev, [uploadId]: true }));
+      if (savedTimersRef.current[uploadId]) {
+        clearTimeout(savedTimersRef.current[uploadId]);
+      }
+      savedTimersRef.current[uploadId] = setTimeout(() => {
+        setSavedCommentIds((prev) => {
+          const next = { ...prev };
+          delete next[uploadId];
+          return next;
+        });
+        delete savedTimersRef.current[uploadId];
+      }, 2200);
     } catch (err) {
       console.error(err);
       alert("Comment update failed");
+    } finally {
+      setSavingCommentIds((prev) => {
+        const next = { ...prev };
+        delete next[uploadId];
+        return next;
+      });
     }
   };
 
@@ -569,6 +600,8 @@ export default function PersonalTab({
             const saved = (p.comment || "").trim();
             const canSave = trimmed.length > 0 && trimmed !== saved;
             const isDeleting = !!deletingIds[p.id];
+            const isSaving = !!savingCommentIds[p.id];
+            const isSaved = !!savedCommentIds[p.id];
             return (
               <div key={p.id} className="slot filled">
                 <div className="slot-image">
@@ -596,7 +629,7 @@ export default function PersonalTab({
                     rows={2}
                     placeholder="Write a comment"
                     value={draft}
-                    disabled={isDeleting}
+                    disabled={isDeleting || isSaving}
                     onChange={(e) =>
                       setCommentDrafts((prev) => ({
                         ...prev,
@@ -609,9 +642,22 @@ export default function PersonalTab({
                       type="button"
                       className="comment-save"
                       onClick={() => updateComment(p.id, trimmed)}
+                      disabled={isSaving}
                     >
-                      Save
+                      {isSaving ? <span className="spinner small" /> : "Save"}
                     </button>
+                  )}
+                  {isSaving && (
+                    <div className="comment-status saving">
+                      <span className="spinner small" />
+                      Saving...
+                    </div>
+                  )}
+                  {!isSaving && isSaved && (
+                    <div className="comment-status saved">
+                      Saved
+                      <span className="save-bar" />
+                    </div>
                   )}
                 </div>
               </div>
