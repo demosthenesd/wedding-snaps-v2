@@ -652,7 +652,6 @@ export default function PersonalTab({
                   )}
                   {isSaving && (
                     <div className="comment-status saving">
-                      <span className="spinner small" />
                       Saving...
                     </div>
                   )}
