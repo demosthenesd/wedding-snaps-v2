@@ -241,7 +241,6 @@ function Camera({ onCapture, onClose, isUploading }) {
           muted
           playsInline
           style={{
-            filter: activeFilter.css,
             transform: facingMode === "user" ? "scaleX(-1)" : "none",
           }}
           className="camera-video"
@@ -263,18 +262,20 @@ function Camera({ onCapture, onClose, isUploading }) {
         </button>
       )}
 
-      <div className="camera-filters">
-        {CAMERA_FILTERS.map((f) => (
-          <button
-            key={f.id}
-            className={f.id === activeFilter.id ? "active" : ""}
-            onClick={() => setActiveFilter(f)}
-            style={{ filter: f.css }}
-          >
-            {f.name}
-          </button>
-        ))}
-      </div>
+      {previewUrl && (
+        <div className="camera-filters">
+          {CAMERA_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              className={f.id === activeFilter.id ? "active" : ""}
+              onClick={() => setActiveFilter(f)}
+              style={{ filter: f.css }}
+            >
+              {f.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="camera-controls">
         {previewUrl ? (
