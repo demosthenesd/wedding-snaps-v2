@@ -249,6 +249,16 @@ body {
   padding: 4px 10px;
   font-size: 11px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.save-text.is-hidden {
+  visibility: hidden;
+  width: 0;
 }
 
 .comment-save:disabled {

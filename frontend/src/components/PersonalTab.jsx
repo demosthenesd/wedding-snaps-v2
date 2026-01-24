@@ -644,7 +644,10 @@ export default function PersonalTab({
                       onClick={() => updateComment(p.id, trimmed)}
                       disabled={isSaving}
                     >
-                      {isSaving ? <span className="spinner small" /> : "Save"}
+                      <span className={`save-text${isSaving ? " is-hidden" : ""}`}>
+                        Save
+                      </span>
+                      {isSaving && <span className="spinner small" />}
                     </button>
                   )}
                   {isSaving && (
