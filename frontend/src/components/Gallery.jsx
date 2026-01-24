@@ -158,7 +158,7 @@ export default function Gallery({ eventId }) {
           className={`tab ${tab === "stream" ? "active" : ""}`}
           onClick={() => setTab("stream")}
         >
-          WEDDING STREAM
+          STREAM
           {tab === "stream" && <span className="tab-underline" />}
         </button>
       </div>

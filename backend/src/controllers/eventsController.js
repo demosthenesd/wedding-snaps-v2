@@ -29,14 +29,19 @@ export function healthCheck(_req, res) {
 }
 
 export async function createEvent(req, res) {
-  const { name, driveFolderId } = req.body || {};
+  const { name, driveFolderId, uploadLimit } = req.body || {};
   const origin = req.get("origin");
   const publicBase = origin && CORS_ORIGINS.includes(origin) ? origin : PUBLIC_BASE_URL;
+  const parsedLimit = Number(uploadLimit);
+  const normalizedLimit = Number.isFinite(parsedLimit)
+    ? Math.min(10, Math.max(4, Math.round(parsedLimit)))
+    : 4;
 
   const ev = await Event.create({
     name: name || "Wedding",
     driveFolderId: driveFolderId || TEST_DRIVE_FOLDER_ID,
     publicBase,
+    uploadLimit: normalizedLimit,
   });
 
   res.json({

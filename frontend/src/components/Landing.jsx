@@ -5,6 +5,7 @@ import { API_BASE } from "../config";
 export default function Landing() {
   const [name, setName] = useState("");
   const [driveId, setDriveId] = useState("");
+  const [uploadLimit, setUploadLimit] = useState(4);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [publicUrl, setPublicUrl] = useState(null);
@@ -21,6 +22,7 @@ export default function Landing() {
         body: JSON.stringify({
           name,
           driveFolderId: driveId,
+          uploadLimit,
         }),
       });
 
@@ -69,6 +71,22 @@ export default function Landing() {
                 type="text"
                 value={driveId}
                 onChange={(e) => setDriveId(e.target.value)}
+              />
+            </label>
+
+            <label className="landing-field">
+              <span>Uploads per guest (4-10)</span>
+              <input
+                type="number"
+                min={4}
+                max={10}
+                step={1}
+                value={uploadLimit}
+                onChange={(e) => {
+                  const raw = Number(e.target.value);
+                  const next = Number.isFinite(raw) ? raw : 4;
+                  setUploadLimit(Math.min(10, Math.max(4, next)));
+                }}
               />
             </label>
 
