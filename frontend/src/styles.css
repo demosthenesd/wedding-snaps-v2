@@ -1090,6 +1090,10 @@ body {
 }
 
 @media (min-width: 1200px) {
+  .album {
+    max-width: 100%;
+  }
+
   .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
