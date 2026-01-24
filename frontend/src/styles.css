@@ -63,7 +63,12 @@ body {
 .brand {
   background: none;
   border: none;
-  cursor: pointer;
+  cursor: default;
+}
+
+.brand-title,
+.brand-subtitle {
+  pointer-events: none;
 }
 
 .brand-title {
