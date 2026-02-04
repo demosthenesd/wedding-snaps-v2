@@ -2,6 +2,7 @@
 import Layout from "./components/Layout";
 import Gallery from "./components/Gallery";
 import Landing from "./components/Landing";
+import { ToastProvider } from "./components/Toast";
 
 export default function App() {
   const [eventId, setEventId] = useState(null);
@@ -13,12 +14,14 @@ export default function App() {
   }, []);
 
   return (
-    <Layout>
-      {eventId ? (
-        <Gallery eventId={eventId} />
-      ) : (
-        <Landing />
-      )}
-    </Layout>
+    <ToastProvider>
+      <Layout>
+        {eventId ? (
+          <Gallery eventId={eventId} />
+        ) : (
+          <Landing />
+        )}
+      </Layout>
+    </ToastProvider>
   );
 }

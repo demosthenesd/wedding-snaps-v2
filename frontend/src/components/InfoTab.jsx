@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from "react";
+import { useToast } from "./Toast";
 
 export default function InfoTab({
   eventId,
@@ -10,6 +11,7 @@ export default function InfoTab({
 }) {
   const canvasRef = useRef(null);
   const [nameDraft, setNameDraft] = useState(uploaderName || "");
+  const { addToast } = useToast();
 
   useEffect(() => {
     setNameDraft(uploaderName || "");
@@ -39,7 +41,7 @@ export default function InfoTab({
   const copy = async () => {
     if (!publicUrl) return;
     await navigator.clipboard.writeText(publicUrl);
-    alert("Link copied!");
+    addToast("Link copied");
   };
 
   if (!eventId) {
@@ -58,57 +60,85 @@ export default function InfoTab({
 
   return (
     <div className="info-wrap">
-      <section className="panel-card info-section">
-        <p className="eyebrow">Uploader identity</p>
+      <div className="info-header">
+        <p className="eyebrow">Info</p>
+        <h3 className="landing-title info-title">Share & identity</h3>
         <p className="landing-subtitle">
-          Current: <strong>{displayName}</strong>
-          {anonymousHint}
+          Keep this tab open on desktop to let guests scan the QR while you update
+          your uploader name.
         </p>
+      </div>
 
-        <div className="info-name">
-          <label className="landing-field">
-            <span>Update your name</span>
-            <input
-              type="text"
-              value={nameDraft}
-              placeholder="Your name"
-              onChange={(e) => setNameDraft(e.target.value)}
-            />
-          </label>
-        </div>
+      <div className="info-grid">
+        <section className="panel-card info-section info-identity">
+          <p className="eyebrow">Uploader identity</p>
+          <p className="landing-subtitle">
+            Current: <strong>{displayName}</strong>
+            {anonymousHint}
+          </p>
 
-        <div className="info-actions">
-          <button
-            className="pill-btn"
-            type="button"
-            onClick={() => onSaveName?.(nameDraft)}
-            disabled={!nameDraft.trim()}
-          >
-            Save name
-          </button>
-          <button
-            className="pill-btn secondary"
-            type="button"
-            onClick={onGoAnonymous}
-          >
-            Go anonymous
-          </button>
-        </div>
-      </section>
-
-      <section className="panel-card info-section">
-        <p className="eyebrow">Share gallery</p>
-        <div className="info-qr">
-          <div className="qrCanvasWrap">
-            <canvas ref={canvasRef} />
+          <div className="info-name">
+            <label className="landing-field">
+              <span>Update your name</span>
+              <input
+                type="text"
+                value={nameDraft}
+                placeholder="Your name"
+                onChange={(e) => setNameDraft(e.target.value)}
+              />
+            </label>
           </div>
-          <div className="info-actions">
-            <button className="pill-btn" onClick={copy} type="button">
-              Copy link
+
+          <div className="info-actions info-actions-row">
+            <button
+              className="pill-btn"
+              type="button"
+              onClick={() => {
+                const ok = onSaveName?.(nameDraft);
+                if (ok === false) {
+                  addToast("Enter a name first", { variant: "warning" });
+                  return;
+                }
+                addToast("Name updated");
+              }}
+              disabled={!nameDraft.trim()}
+            >
+              Save name
+            </button>
+            <button
+              className="pill-btn secondary"
+              type="button"
+              onClick={() => {
+                onGoAnonymous?.();
+                addToast("Now uploading anonymously");
+              }}
+            >
+              Go anonymous
             </button>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section className="panel-card info-section info-share">
+          <p className="eyebrow">Share gallery</p>
+          <p className="landing-subtitle">
+            Let guests scan the code or copy the link to upload their photos.
+          </p>
+          <div className="info-qr">
+            <div className="qrCanvasWrap">
+              <canvas ref={canvasRef} />
+            </div>
+            <p className="qrUrl">{publicUrl}</p>
+            <div className="info-actions">
+              <button className="pill-btn" onClick={copy} type="button">
+                Copy link
+              </button>
+              <a className="pill-btn secondary" href={publicUrl}>
+                Open gallery
+              </a>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

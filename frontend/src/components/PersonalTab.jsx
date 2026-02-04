@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CAMERA_FILTERS } from "./cameraFilters";
 import { API_BASE } from "../config";
+import { useToast } from "./Toast";
 
 /* ---------------- Helpers ---------------- */
 
@@ -43,7 +44,7 @@ async function compressImage(file, maxBytes = 100_000, maxDim = 1600) {
 
 /* ---------------- Camera ---------------- */
 
-function Camera({ onCapture, onClose, isUploading }) {
+function Camera({ onCapture, onClose, isUploading, onToast }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -68,7 +69,9 @@ function Camera({ onCapture, onClose, isUploading }) {
     startPromiseRef.current = (async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        alert("Camera not available. Use HTTPS or localhost.");
+        onToast?.("Camera not available. Use HTTPS or localhost.", {
+          variant: "warning",
+        });
         onCloseRef.current?.();
         return;
       }
@@ -117,7 +120,7 @@ function Camera({ onCapture, onClose, isUploading }) {
       console.error("Camera error:", err);
       if (err?.name === "AbortError") return;
       const reason = err?.name ? ` (${err.name})` : "";
-      alert(`Camera access denied${reason}`);
+      onToast?.(`Camera access denied${reason}`, { variant: "warning" });
       onCloseRef.current?.();
     } finally {
       isStartingRef.current = false;
@@ -315,6 +318,7 @@ export default function PersonalTab({
   uploaderName,
   isActive,
 }) {
+  const { addToast } = useToast();
   const [myUploads, setMyUploads] = useState([]);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -441,7 +445,7 @@ export default function PersonalTab({
         await fetchMine();
       }
     } catch {
-      alert("Upload failed");
+      addToast("Upload failed", { variant: "warning" });
     } finally {
       if (manageState) setIsUploading(false);
     }
@@ -489,7 +493,7 @@ export default function PersonalTab({
       fetchMine();
     } catch (err) {
       console.error(err);
-      alert("Delete failed");
+      addToast("Delete failed", { variant: "warning" });
     } finally {
       setDeletingIds((prev) => {
         const next = { ...prev };
@@ -538,7 +542,7 @@ export default function PersonalTab({
       }, 2200);
     } catch (err) {
       console.error(err);
-      alert("Comment update failed");
+      addToast("Comment update failed", { variant: "warning" });
     } finally {
       setSavingCommentIds((prev) => {
         const next = { ...prev };
@@ -590,6 +594,7 @@ export default function PersonalTab({
             uploadFile(file);
           }}
           isUploading={isUploading}
+          onToast={addToast}
         />
       )}
 

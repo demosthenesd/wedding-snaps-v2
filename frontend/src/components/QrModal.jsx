@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
+import { useToast } from "./Toast";
 
 export default function QrModal({ url, onClose }) {
   const canvasRef = useRef(null);
+  const { addToast } = useToast();
 
   useEffect(() => {
     let isActive = true;
@@ -26,7 +28,7 @@ export default function QrModal({ url, onClose }) {
 
   const copy = async () => {
     await navigator.clipboard.writeText(url);
-    alert("Link copied!");
+    addToast("Link copied");
   };
 
   return (
