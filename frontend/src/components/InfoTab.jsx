@@ -54,9 +54,7 @@ export default function InfoTab({
 
   const displayName = identityChoice === "named" ? uploaderName : "Anonymous";
   const anonymousHint =
-    identityChoice === "anonymous" && uploaderName
-      ? ` (${uploaderName})`
-      : "";
+    identityChoice === "anonymous" && uploaderName ? ` (${uploaderName})` : "";
 
   return (
     <div className="info-wrap">
@@ -76,12 +74,28 @@ export default function InfoTab({
 
       <section className="panel-card info-section">
         <p className="eyebrow">Uploader identity</p>
-        <h3 className="landing-title info-title">Your name</h3>
         <p className="landing-subtitle">
           Current: <strong>{displayName}</strong>
           {anonymousHint}
         </p>
 
+        <div className="info-actions">
+          <button
+            className="pill-btn"
+            type="button"
+            onClick={() => onSaveName?.(nameDraft)}
+            disabled={!nameDraft.trim()}
+          >
+            Save name
+          </button>
+          <button
+            className="pill-btn secondary"
+            type="button"
+            onClick={onGoAnonymous}
+          >
+            Go anonymous
+          </button>
+        </div>
         <div className="info-name">
           <label className="landing-field">
             <span>Update your name</span>
@@ -92,24 +106,6 @@ export default function InfoTab({
               onChange={(e) => setNameDraft(e.target.value)}
             />
           </label>
-
-          <div className="info-actions">
-            <button
-              className="pill-btn"
-              type="button"
-              onClick={() => onSaveName?.(nameDraft)}
-              disabled={!nameDraft.trim()}
-            >
-              Save name
-            </button>
-            <button
-              className="pill-btn secondary"
-              type="button"
-              onClick={onGoAnonymous}
-            >
-              Go anonymous
-            </button>
-          </div>
         </div>
       </section>
     </div>

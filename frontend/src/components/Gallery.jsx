@@ -9,6 +9,16 @@ function buildGuestName() {
   return `Guest ${id}`;
 }
 
+function getDeviceId() {
+  const key = "wedding_snaps_device_id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
 export default function Gallery({ eventId }) {
   const [tab, setTab] = useState("personal");
   const [uploadLimit, setUploadLimit] = useState(4);
@@ -59,12 +69,33 @@ export default function Gallery({ eventId }) {
     if (!choice) setShowIdentityModal(true);
   }, [eventId, choiceKey, nameKey]);
 
+  const updateUploaderNameRemote = async (name) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/events/${eventId}/uploader-name`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Device-Id": getDeviceId(),
+          },
+          body: JSON.stringify({ name }),
+        }
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Update failed");
+    } catch (err) {
+      console.warn("Update uploader name failed:", err);
+    }
+  };
+
   const chooseAnonymous = () => {
     const guestName = buildGuestName();
     localStorage.setItem(nameKey, guestName);
     setUploaderName(guestName);
     localStorage.setItem(choiceKey, "anonymous");
     setIdentityChoice("anonymous");
+    updateUploaderNameRemote(guestName);
     setShowIdentityModal(false);
     setShowNameEntry(false);
   };
@@ -76,6 +107,7 @@ export default function Gallery({ eventId }) {
     localStorage.setItem(choiceKey, "named");
     setUploaderName(nextName);
     setIdentityChoice("named");
+    updateUploaderNameRemote(nextName);
     setShowIdentityModal(false);
     setShowNameEntry(false);
     return true;
