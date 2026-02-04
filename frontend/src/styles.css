@@ -421,6 +421,25 @@ body {
   justify-content: center;
 }
 
+.personal-grid .upload-cta {
+  position: sticky;
+  top: 72px;
+  z-index: 6;
+  margin-top: 0;
+  padding: 10px 0 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 249, 246, 0.98) 0%,
+    rgba(250, 249, 246, 0.92) 60%,
+    rgba(250, 249, 246, 0) 100%
+  );
+}
+
+.personal-grid .upload-cta .limit-warning,
+.personal-grid .upload-cta .upload-btn {
+  box-shadow: 0 10px 24px rgba(74, 63, 53, 0.12);
+}
+
 .upload-btn {
   padding: 12px 18px;
   border-radius: 999px;

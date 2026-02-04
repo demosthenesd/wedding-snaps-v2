@@ -598,6 +598,37 @@ export default function PersonalTab({
         />
       )}
 
+      <div className="upload-cta">
+        {myUploads.length >= uploadLimit ? (
+          <div className="limit-warning">
+            Max limit reached. Delete a photo if you want to upload a new one.
+          </div>
+        ) : (
+          <>
+            <button
+              className="upload-btn"
+              onClick={() => pickerRef.current?.click()}
+              disabled={isUploading}
+              type="button"
+            >
+              {isUploading ? "Uploading..." : "Upload from device"}
+            </button>
+            <input
+              ref={pickerRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                e.target.value = "";
+                uploadFiles(files);
+              }}
+            />
+          </>
+        )}
+      </div>
+
       <div className="grid">
         {Array.from({ length: uploadLimit }).map((_, i) => {
           const p = myUploads[i];
@@ -704,36 +735,6 @@ export default function PersonalTab({
         })}
       </div>
 
-      <div className="upload-cta">
-        {myUploads.length >= uploadLimit ? (
-          <div className="limit-warning">
-            Max limit reached. Delete a photo if you want to upload a new one.
-          </div>
-        ) : (
-          <>
-            <button
-              className="upload-btn"
-              onClick={() => pickerRef.current?.click()}
-              disabled={isUploading}
-              type="button"
-            >
-              {isUploading ? "Uploading..." : "Upload from device"}
-            </button>
-            <input
-              ref={pickerRef}
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                e.target.value = "";
-                uploadFiles(files);
-              }}
-            />
-          </>
-        )}
-      </div>
     </section>
   );
 }
