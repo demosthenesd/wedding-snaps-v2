@@ -59,25 +59,23 @@ export default function InfoTab({
   return (
     <div className="info-wrap">
       <section className="panel-card info-section">
-        <p className="eyebrow">Share gallery</p>
-        <div className="info-qr">
-          <div className="qrCanvasWrap">
-            <canvas ref={canvasRef} />
-          </div>
-          <div className="info-actions">
-            <button className="pill-btn" onClick={copy} type="button">
-              Copy link
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel-card info-section">
         <p className="eyebrow">Uploader identity</p>
         <p className="landing-subtitle">
           Current: <strong>{displayName}</strong>
           {anonymousHint}
         </p>
+
+        <div className="info-name">
+          <label className="landing-field">
+            <span>Update your name</span>
+            <input
+              type="text"
+              value={nameDraft}
+              placeholder="Your name"
+              onChange={(e) => setNameDraft(e.target.value)}
+            />
+          </label>
+        </div>
 
         <div className="info-actions">
           <button
@@ -96,16 +94,19 @@ export default function InfoTab({
             Go anonymous
           </button>
         </div>
-        <div className="info-name">
-          <label className="landing-field">
-            <span>Update your name</span>
-            <input
-              type="text"
-              value={nameDraft}
-              placeholder="Your name"
-              onChange={(e) => setNameDraft(e.target.value)}
-            />
-          </label>
+      </section>
+
+      <section className="panel-card info-section">
+        <p className="eyebrow">Share gallery</p>
+        <div className="info-qr">
+          <div className="qrCanvasWrap">
+            <canvas ref={canvasRef} />
+          </div>
+          <div className="info-actions">
+            <button className="pill-btn" onClick={copy} type="button">
+              Copy link
+            </button>
+          </div>
         </div>
       </section>
     </div>
