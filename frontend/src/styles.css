@@ -1259,14 +1259,38 @@ body {
   .info-wrap {
     max-width: 960px;
     margin: 0 auto;
+    padding: 28px 12px 40px;
   }
 
   .info-grid {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-    align-items: start;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 20px;
+    align-items: stretch;
+  }
+
+  .info-section {
+    padding: 24px;
+  }
+
+  .info-header {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .info-identity {
+    align-self: start;
   }
 
   .info-qr {
     align-items: center;
+    gap: 14px;
+  }
+
+  .info-qr .qrCanvasWrap {
+    padding: 18px;
+  }
+
+  .info-share .pill-btn {
+    padding: 10px 16px;
   }
 }
