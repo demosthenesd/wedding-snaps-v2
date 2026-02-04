@@ -285,6 +285,29 @@ export async function updateComment(req, res) {
   res.json({ ok: true, comment });
 }
 
+export async function updateUploaderName(req, res) {
+  const { eventId } = req.params;
+
+  const ev = await Event.findById(eventId);
+  if (!ev) {
+    return res.status(404).json({ ok: false, error: "Event not found" });
+  }
+
+  const deviceHash = getDeviceHash(req);
+  const name = String(req.body?.name ?? "").trim().slice(0, 80);
+
+  const result = await Upload.updateMany(
+    { eventId: ev._id, deviceHash },
+    { $set: { uploaderName: name, updatedAt: new Date() } }
+  );
+
+  res.json({
+    ok: true,
+    name,
+    updated: result?.modifiedCount ?? result?.nModified ?? 0,
+  });
+}
+
 export async function listMyUploads(req, res) {
   const ev = await Event.findById(req.params.eventId);
   if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });

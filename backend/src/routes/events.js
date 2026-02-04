@@ -8,6 +8,7 @@ import {
   listUploads,
   streamFile,
   updateComment,
+  updateUploaderName,
   uploadFile,
 } from "../controllers/eventsController.js";
 
@@ -26,5 +27,6 @@ router.get("/:eventId/files/:fileId", streamFile);
 router.post("/:eventId/upload", upload.single("file"), uploadFile);
 router.delete("/:eventId/uploads/:uploadId", deleteUpload);
 router.patch("/:eventId/uploads/:uploadId/comment", updateComment);
+router.patch("/:eventId/uploader-name", updateUploaderName);
 
 export default router;
