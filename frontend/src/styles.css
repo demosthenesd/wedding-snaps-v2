@@ -1098,3 +1098,59 @@ body {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* ---------- Info Tab ---------- */
+
+.info-wrap {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.info-title {
+  font-size: 22px;
+}
+
+.info-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.info-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.info-name {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-actions .pill-btn,
+.info-actions .pill-btn.secondary {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .info-actions {
+    flex-direction: row;
+  }
+
+  .info-actions .pill-btn,
+  .info-actions .pill-btn.secondary {
+    width: auto;
+  }
+}

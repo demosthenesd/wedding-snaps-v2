@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import PersonalTab from "./PersonalTab";
 import StreamTab from "./StreamTab";
+import InfoTab from "./InfoTab";
 import { API_BASE } from "../config";
 
 function buildGuestName() {
@@ -17,10 +18,19 @@ export default function Gallery({ eventId }) {
   const [showNameEntry, setShowNameEntry] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [uploaderName, setUploaderName] = useState("");
+  const [identityChoice, setIdentityChoice] = useState(null);
 
   const connectUrl = `${API_BASE}/auth/google/start?eventId=${eventId}`;
   const choiceKey = `wedding_snaps_identity_choice_${eventId}`;
   const nameKey = "wedding_snaps_uploader_name";
+
+  const publicUrl = eventId
+    ? (() => {
+        const url = new URL(window.location.pathname, window.location.origin);
+        url.searchParams.set("e", eventId);
+        return url.toString();
+      })()
+    : "";
 
   /* ---------- Fetch config ---------- */
   useEffect(() => {
@@ -39,6 +49,7 @@ export default function Gallery({ eventId }) {
     if (!eventId) return;
     const choice = localStorage.getItem(choiceKey);
     const storedName = localStorage.getItem(nameKey);
+    if (choice) setIdentityChoice(choice);
     if (storedName) setUploaderName(storedName);
     if (choice === "anonymous" && !storedName) {
       const guestName = buildGuestName();
@@ -53,8 +64,21 @@ export default function Gallery({ eventId }) {
     localStorage.setItem(nameKey, guestName);
     setUploaderName(guestName);
     localStorage.setItem(choiceKey, "anonymous");
+    setIdentityChoice("anonymous");
     setShowIdentityModal(false);
     setShowNameEntry(false);
+  };
+
+  const setNamedIdentity = (rawName) => {
+    const nextName = rawName.trim().slice(0, 40);
+    if (!nextName) return false;
+    localStorage.setItem(nameKey, nextName);
+    localStorage.setItem(choiceKey, "named");
+    setUploaderName(nextName);
+    setIdentityChoice("named");
+    setShowIdentityModal(false);
+    setShowNameEntry(false);
+    return true;
   };
 
   const openNameEntry = () => {
@@ -62,13 +86,7 @@ export default function Gallery({ eventId }) {
   };
 
   const saveName = () => {
-    const nextName = nameInput.trim().slice(0, 40);
-    if (!nextName) return;
-    localStorage.setItem(nameKey, nextName);
-    localStorage.setItem(choiceKey, "named");
-    setUploaderName(nextName);
-    setShowIdentityModal(false);
-    setShowNameEntry(false);
+    setNamedIdentity(nameInput);
   };
 
   return (
@@ -161,6 +179,14 @@ export default function Gallery({ eventId }) {
           STREAM
           {tab === "stream" && <span className="tab-underline" />}
         </button>
+
+        <button
+          className={`tab ${tab === "info" ? "active" : ""}`}
+          onClick={() => setTab("info")}
+        >
+          INFO
+          {tab === "info" && <span className="tab-underline" />}
+        </button>
       </div>
       {!isDriveConnected && (
         <div className="connect">
@@ -189,6 +215,20 @@ export default function Gallery({ eventId }) {
         aria-hidden={tab !== "stream"}
       >
         <StreamTab eventId={eventId} isActive={tab === "stream"} />
+      </div>
+
+      <div
+        className={`tab-panel ${tab === "info" ? "" : "hidden"}`}
+        aria-hidden={tab !== "info"}
+      >
+        <InfoTab
+          eventId={eventId}
+          publicUrl={publicUrl}
+          uploaderName={uploaderName}
+          identityChoice={identityChoice}
+          onSaveName={setNamedIdentity}
+          onGoAnonymous={chooseAnonymous}
+        />
       </div>
     </div>
   );
