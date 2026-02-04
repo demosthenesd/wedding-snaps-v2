@@ -62,23 +62,14 @@ export default function InfoTab({
     <div className="info-wrap">
       <section className="panel-card info-section">
         <p className="eyebrow">Share gallery</p>
-        <h3 className="landing-title info-title">Invite guests</h3>
-        <p className="landing-subtitle">
-          Keep this QR open so others can scan and upload.
-        </p>
-
         <div className="info-qr">
           <div className="qrCanvasWrap">
             <canvas ref={canvasRef} />
           </div>
-          <p className="qrUrl">{publicUrl}</p>
           <div className="info-actions">
             <button className="pill-btn" onClick={copy} type="button">
               Copy link
             </button>
-            <a className="pill-btn secondary" href={publicUrl}>
-              Open gallery
-            </a>
           </div>
         </div>
       </section>
