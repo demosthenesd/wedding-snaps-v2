@@ -28,7 +28,7 @@ export default function QrModal({ url, onClose }) {
 
   const copy = async () => {
     await navigator.clipboard.writeText(url);
-    addToast("Link copied");
+    addToast("Link copied", { variant: "success" });
   };
 
   return (

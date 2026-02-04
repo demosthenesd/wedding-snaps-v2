@@ -1114,7 +1114,7 @@ body {
 
 .toast {
   pointer-events: auto;
-  background: #2b2723;
+  background: rgba(43, 39, 35, 0.88);
   color: white;
   border-radius: 14px;
   padding: 10px 12px;
@@ -1126,8 +1126,16 @@ body {
   animation: toast-in 0.2s ease-out;
 }
 
+.toast-success {
+  background: rgba(46, 124, 95, 0.88);
+}
+
 .toast-warning {
-  background: #a6612d;
+  background: rgba(166, 97, 45, 0.88);
+}
+
+.toast-error {
+  background: rgba(168, 53, 48, 0.9);
 }
 
 .toast button {

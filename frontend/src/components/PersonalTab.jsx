@@ -70,7 +70,7 @@ function Camera({ onCapture, onClose, isUploading, onToast }) {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         onToast?.("Camera not available. Use HTTPS or localhost.", {
-          variant: "warning",
+          variant: "error",
         });
         onCloseRef.current?.();
         return;
@@ -120,7 +120,7 @@ function Camera({ onCapture, onClose, isUploading, onToast }) {
       console.error("Camera error:", err);
       if (err?.name === "AbortError") return;
       const reason = err?.name ? ` (${err.name})` : "";
-      onToast?.(`Camera access denied${reason}`, { variant: "warning" });
+      onToast?.(`Camera access denied${reason}`, { variant: "error" });
       onCloseRef.current?.();
     } finally {
       isStartingRef.current = false;
@@ -445,7 +445,7 @@ export default function PersonalTab({
         await fetchMine();
       }
     } catch {
-      addToast("Upload failed", { variant: "warning" });
+      addToast("Upload failed", { variant: "error" });
     } finally {
       if (manageState) setIsUploading(false);
     }
@@ -493,7 +493,7 @@ export default function PersonalTab({
       fetchMine();
     } catch (err) {
       console.error(err);
-      addToast("Delete failed", { variant: "warning" });
+      addToast("Delete failed", { variant: "error" });
     } finally {
       setDeletingIds((prev) => {
         const next = { ...prev };
@@ -542,7 +542,7 @@ export default function PersonalTab({
       }, 2200);
     } catch (err) {
       console.error(err);
-      addToast("Comment update failed", { variant: "warning" });
+      addToast("Comment update failed", { variant: "error" });
     } finally {
       setSavingCommentIds((prev) => {
         const next = { ...prev };

@@ -41,7 +41,7 @@ export default function InfoTab({
   const copy = async () => {
     if (!publicUrl) return;
     await navigator.clipboard.writeText(publicUrl);
-    addToast("Link copied");
+    addToast("Link copied", { variant: "success" });
   };
 
   if (!eventId) {
@@ -61,17 +61,14 @@ export default function InfoTab({
   return (
     <div className="info-wrap">
       <div className="info-header">
-        <p className="eyebrow">Info</p>
-        <h3 className="landing-title info-title">Share & identity</h3>
+        <h3 className="landing-title info-title">Share and identity</h3>
         <p className="landing-subtitle">
-          Keep this tab open on desktop to let guests scan the QR while you update
-          your uploader name.
+          Don't be shy! Let everyone know who captured those beautiful moments.
         </p>
       </div>
 
       <div className="info-grid">
         <section className="panel-card info-section info-identity">
-          <p className="eyebrow">Uploader identity</p>
           <p className="landing-subtitle">
             Current: <strong>{displayName}</strong>
             {anonymousHint}
@@ -99,7 +96,7 @@ export default function InfoTab({
                   addToast("Enter a name first", { variant: "warning" });
                   return;
                 }
-                addToast("Name updated");
+                addToast("Name updated", { variant: "success" });
               }}
               disabled={!nameDraft.trim()}
             >
@@ -110,7 +107,7 @@ export default function InfoTab({
               type="button"
               onClick={() => {
                 onGoAnonymous?.();
-                addToast("Now uploading anonymously");
+                addToast("Now uploading anonymously", { variant: "success" });
               }}
             >
               Go anonymous
@@ -127,14 +124,10 @@ export default function InfoTab({
             <div className="qrCanvasWrap">
               <canvas ref={canvasRef} />
             </div>
-            <p className="qrUrl">{publicUrl}</p>
             <div className="info-actions">
               <button className="pill-btn" onClick={copy} type="button">
                 Copy link
               </button>
-              <a className="pill-btn secondary" href={publicUrl}>
-                Open gallery
-              </a>
             </div>
           </div>
         </section>
