@@ -11,7 +11,7 @@ export default function Layout({ children }) {
       <main className="album-content">{children}</main>
 
       <footer className="album-footer">
-        © 2026 Candid Snaps. For the memories that last.
+        (c) 2026 Candid Snaps. For the memories that last.
       </footer>
     </div>
   );

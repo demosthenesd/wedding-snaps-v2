@@ -29,6 +29,15 @@ export function healthCheck(_req, res) {
 }
 
 export async function createEvent(req, res) {
+  const adminCode = process.env.ADMIN_PASSCODE;
+  if (adminCode) {
+    const provided =
+      String(req.get("X-Admin-Code") || req.body?.adminCode || "").trim();
+    if (!provided || provided !== adminCode) {
+      return res.status(401).json({ ok: false, error: "Invalid passcode" });
+    }
+  }
+
   const { name, driveFolderId, uploadLimit } = req.body || {};
   const origin = req.get("origin");
   const publicBase = origin && CORS_ORIGINS.includes(origin) ? origin : PUBLIC_BASE_URL;

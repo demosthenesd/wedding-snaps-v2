@@ -3,6 +3,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import eventsRoutes from "./routes/events.js";
 import oauthRoutes from "./routes/oauth.js";
+import authRoutes from "./routes/auth.js";
 import { healthCheck } from "./controllers/eventsController.js";
 import { CORS_ORIGINS } from "./config.js";
 
@@ -29,6 +30,7 @@ app.use(
 
 app.get("/", healthCheck);
 app.use("/", oauthRoutes);
+app.use("/", authRoutes);
 app.use("/events", eventsRoutes);
 
 export default app;

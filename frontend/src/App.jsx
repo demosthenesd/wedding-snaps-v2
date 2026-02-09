@@ -2,6 +2,7 @@
 import Layout from "./components/Layout";
 import Gallery from "./components/Gallery";
 import Landing from "./components/Landing";
+import PublicLanding from "./components/PublicLanding";
 import { ToastProvider } from "./components/Toast";
 
 export default function App() {
@@ -18,8 +19,10 @@ export default function App() {
       <Layout>
         {eventId ? (
           <Gallery eventId={eventId} />
-        ) : (
+        ) : window.location.pathname.startsWith("/admin") ? (
           <Landing />
+        ) : (
+          <PublicLanding />
         )}
       </Layout>
     </ToastProvider>
