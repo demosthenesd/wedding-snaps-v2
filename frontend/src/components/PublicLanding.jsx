@@ -76,6 +76,13 @@ export default function PublicLanding() {
     window.history.replaceState({}, "", url.toString());
   };
 
+  const handleContactSubmit = (e) => {
+    if (window.location.hostname === "localhost") {
+      e.preventDefault();
+      setShowContactSuccess(true);
+    }
+  };
+
   return (
     <div className="landing public-landing">
       <header className="public-header">
@@ -291,6 +298,7 @@ export default function PublicLanding() {
               data-netlify="true"
               data-netlify-honeypot="bot-field"
               action="/?success=1#contact"
+              onSubmit={handleContactSubmit}
             >
               <input type="hidden" name="form-name" value="contact" />
               <p style={{ display: "none" }}>
