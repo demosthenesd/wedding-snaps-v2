@@ -833,6 +833,29 @@ body {
   resize: vertical;
 }
 
+.contact-success {
+  margin-top: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #fff7e6;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.contact-success button {
+  border: none;
+  background: var(--ink);
+  color: white;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
 .panel-card {
   background: linear-gradient(180deg, #ffffff 0%, #fdf8ef 100%);
   border: 1px solid var(--border);

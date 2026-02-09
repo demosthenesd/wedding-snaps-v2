@@ -28,6 +28,10 @@ export default function PublicLanding() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminError, setAdminError] = useState("");
   const [adminCode, setAdminCode] = useState("");
+  const [showContactSuccess, setShowContactSuccess] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("success") === "1";
+  });
 
   const openAdmin = () => {
     setAdminCode("");
@@ -63,6 +67,13 @@ export default function PublicLanding() {
       console.error(err);
       setAdminError("Unable to verify passcode.");
     }
+  };
+
+  const dismissSuccess = () => {
+    setShowContactSuccess(false);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("success");
+    window.history.replaceState({}, "", url.toString());
   };
 
   return (
@@ -275,10 +286,19 @@ export default function PublicLanding() {
 
             <form
               className="panel-card contact-form"
-              action="mailto:demosthenes.demecillo@gmail.com"
-              method="post"
-              encType="text/plain"
+              name="contact"
+              method="POST"
+              data-netlify="true"
+              data-netlify-honeypot="bot-field"
+              action="/?success=1#contact"
             >
+              <input type="hidden" name="form-name" value="contact" />
+              <p style={{ display: "none" }}>
+                <label>
+                  Don’t fill this out if you're human:
+                  <input name="bot-field" />
+                </label>
+              </p>
               <label className="landing-field">
                 <span>Name</span>
                 <input type="text" name="name" required />
@@ -296,6 +316,17 @@ export default function PublicLanding() {
               </button>
             </form>
           </div>
+
+          {showContactSuccess && (
+            <div className="contact-success" role="status">
+              <div>
+                Thanks! Your message was sent. We will get back to you soon.
+              </div>
+              <button type="button" onClick={dismissSuccess}>
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
