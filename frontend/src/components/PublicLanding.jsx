@@ -21,7 +21,7 @@ export default function PublicLanding() {
         a: "Yes. Only people with your event link can view and upload.",
       },
     ],
-    []
+    [],
   );
 
   const [openFaq, setOpenFaq] = useState(0);
@@ -88,10 +88,7 @@ export default function PublicLanding() {
       <header className="public-header">
         <div className="public-shell">
           <div className="public-header-row">
-            <div className="public-logo">
-              <span className="public-logo-mark" />
-              <span className="public-logo-text">Candid Snaps</span>
-            </div>
+            <div className="public-logo"></div>
             <nav className="public-nav" aria-label="Page">
               <a href="#intro">Intro</a>
               <a href="#features">Features</a>
@@ -112,8 +109,9 @@ export default function PublicLanding() {
       <section className="public-hero">
         <div className="public-shell hero-grid">
           <div className="hero-copy">
-            <p className="hero-kicker">CAPTURE THE BTS OF LOVE</p>
-            <h2 className="hero-title">Capture your behind-the-scenes.</h2>
+            <h2 className="hero-title">
+              The candid moments that tell the whole story.
+            </h2>
             <p className="hero-subtitle">
               A private, shared gallery where guests can upload their favorite
               moments in real time.
@@ -125,7 +123,7 @@ export default function PublicLanding() {
               </div>
               <div>
                 <span className="hero-meta-number">0 apps</span>
-                <span className="hero-meta-label">for guests</span>
+                <span className="hero-meta-label">browser-based</span>
               </div>
               <div>
                 <span className="hero-meta-number">100%</span>
@@ -146,7 +144,7 @@ export default function PublicLanding() {
       <section id="intro" className="public-section">
         <div className="public-shell">
           <div className="section-header">
-            <h3>Intro</h3>
+            <h3>A Guest-Powered Gallery</h3>
             <p>
               Create a shared gallery, connect Google Drive, and let your guests
               do the rest. It takes minutes to set up.
@@ -237,109 +235,94 @@ export default function PublicLanding() {
 
       <section id="faq" className="public-section">
         <div className="public-shell">
-          <div className="section-header">
-            <h3>FAQs</h3>
-            <p>Answers to common questions before you get started.</p>
-          </div>
-          <div className="faq-list">
-            {faqs.map((item, idx) => {
-              const open = openFaq === idx;
-              return (
-                <div key={item.q} className="faq-item">
-                  <button
-                    type="button"
-                    className="faq-question"
-                    onClick={() => setOpenFaq(open ? -1 : idx)}
-                    aria-expanded={open}
-                  >
-                    <span>{item.q}</span>
-                    <span className={`faq-chevron${open ? " open" : ""}`}>
-                      v
-                    </span>
-                  </button>
-                  {open && <div className="faq-answer">{item.a}</div>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+          <div className="faq-contact-grid">
+            <div className="faq-block">
+              <div className="section-header">
+                <h3>FAQs</h3>
+                <p>Answers to common questions before you get started.</p>
+              </div>
+              <div className="faq-list">
+                {faqs.map((item, idx) => {
+                  const open = openFaq === idx;
+                  return (
+                    <div key={item.q} className="faq-item">
+                      <button
+                        type="button"
+                        className="faq-question"
+                        onClick={() => setOpenFaq(open ? -1 : idx)}
+                        aria-expanded={open}
+                      >
+                        <span>{item.q}</span>
+                        <span
+                          className={`faq-toggle${open ? " open" : ""}`}
+                          aria-hidden="true"
+                        />
+                      </button>
+                      {open && <div className="faq-answer">{item.a}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
-      <section id="contact" className="public-section">
-        <div className="public-shell">
-          <div className="contact-grid">
-            <div>
+            <div id="contact" className="contact-block">
               <div className="section-header">
                 <h3>Contact us</h3>
-                <p>
-                  Tell us about your date and guest count. We will reply quickly.
+                <p>Tell us about your date and guest count. We reply fast.</p>
+              </div>
+              <form
+                className="panel-card contact-form"
+                name="contact"
+                method="POST"
+                data-netlify="true"
+                data-netlify-honeypot="bot-field"
+                action="/?success=1#contact"
+                onSubmit={handleContactSubmit}
+              >
+                <input type="hidden" name="form-name" value="contact" />
+                <p style={{ display: "none" }}>
+                  <label>
+                    Dont fill this out if you're human:
+                    <input name="bot-field" />
+                  </label>
                 </p>
-              </div>
-              <div className="contact-card">
-                <div>
-                  <span>Email</span>
-                  <strong>demosthenes.demecillo@gmail.com</strong>
-                </div>
-                <div>
-                  <span>Response time</span>
-                  <strong>Within 24 hours</strong>
-                </div>
-                <div>
-                  <span>Coverage</span>
-                  <strong>Worldwide</strong>
-                </div>
-              </div>
-            </div>
-
-            <form
-              className="panel-card contact-form"
-              name="contact"
-              method="POST"
-              data-netlify="true"
-              data-netlify-honeypot="bot-field"
-              action="/?success=1#contact"
-              onSubmit={handleContactSubmit}
-            >
-              <input type="hidden" name="form-name" value="contact" />
-              <p style={{ display: "none" }}>
-                <label>
-                  Don’t fill this out if you're human:
-                  <input name="bot-field" />
+                <label className="landing-field">
+                  <span>Name</span>
+                  <input type="text" name="name" required />
                 </label>
-              </p>
-              <label className="landing-field">
-                <span>Name</span>
-                <input type="text" name="name" required />
-              </label>
-              <label className="landing-field">
-                <span>Email</span>
-                <input type="email" name="email" required />
-              </label>
-              <label className="landing-field">
-                <span>Message</span>
-                <textarea name="message" rows={5} required />
-              </label>
-              <button className="pill-btn landing-primary" type="submit">
-                Contact us
-              </button>
-            </form>
-          </div>
-
-          {showContactSuccess && (
-            <div className="contact-success" role="status">
-              <div>
-                Thanks! Your message was sent. We will get back to you soon.
-              </div>
-              <button type="button" onClick={dismissSuccess}>
-                Close
-              </button>
+                <label className="landing-field">
+                  <span>Email</span>
+                  <input type="email" name="email" required />
+                </label>
+                <label className="landing-field">
+                  <span>Message</span>
+                  <textarea name="message" rows={5} required />
+                </label>
+                <button className="pill-btn landing-primary" type="submit">
+                  Contact us
+                </button>
+              </form>
+              {showContactSuccess && (
+                <div className="contact-success" role="status">
+                  <div>
+                    Thanks! Your message was sent. We will get back to you soon.
+                  </div>
+                  <button type="button" onClick={dismissSuccess}>
+                    Close
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </section>
 
       {showAdmin && (
-        <div className="identity-modal" onClick={closeAdmin} role="presentation">
+        <div
+          className="identity-modal"
+          onClick={closeAdmin}
+          role="presentation"
+        >
           <div
             className="identity-card"
             onClick={(e) => e.stopPropagation()}

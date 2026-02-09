@@ -4,7 +4,9 @@ export default function Layout({ children }) {
       <header className="album-header">
         <div className="brand">
           <h1 className="brand-title">Candid Snaps</h1>
-          <p className="brand-subtitle">Capturing the BTS of Love</p>
+          <p className="brand-subtitle">
+            Real memories, captured by the people you love
+          </p>
         </div>
       </header>
 
