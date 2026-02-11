@@ -152,13 +152,14 @@ export default function PublicLanding() {
           </div>
           <div className="intro-grid">
             <div className="panel-card intro-card">
-              <h4>Designed for weddings</h4>
+              <h4>Made for celebrations of every kind</h4>
               <p>
                 Set a guest upload limit, personalize the event, and share the
                 QR code. You stay in control while everyone contributes.
               </p>
               <ul>
                 <li>Instant uploads from any phone</li>
+                <li>No app required for guests</li>
                 <li>Simple QR sharing</li>
                 <li>Automatic photo organization</li>
               </ul>
