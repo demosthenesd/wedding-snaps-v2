@@ -1,6 +1,6 @@
-# Wedding Snaps v2 (React)
+# Candid Snaps v2 (React)
 
-Wedding Snaps **v2** — a refreshed version of the Wedding Snaps project built with **React**.
+Candid Snaps **v2** — a refreshed version of the Candid Snaps project built with **React**.
 
 ## Overview
 

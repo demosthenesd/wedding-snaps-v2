@@ -1,0 +1,13 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Set this in Netlify UI to your backend URL.
+  VITE_API_BASE_URL = ""
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,267 @@
+﻿import { useEffect, useState } from "react";
+import PersonalTab from "./PersonalTab";
+import StreamTab from "./StreamTab";
+import InfoTab from "./InfoTab";
+import { API_BASE } from "../config";
+
+function buildGuestName() {
+  const id = crypto.randomUUID().slice(0, 6).toUpperCase();
+  return `Guest ${id}`;
+}
+
+function getDeviceId() {
+  const key = "wedding_snaps_device_id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+export default function Gallery({ eventId }) {
+  const [tab, setTab] = useState("personal");
+  const [uploadLimit, setUploadLimit] = useState(4);
+  const [isDriveConnected, setIsDriveConnected] = useState(false);
+  const [isOwnerConnected, setIsOwnerConnected] = useState(false);
+  const [showIdentityModal, setShowIdentityModal] = useState(false);
+  const [showNameEntry, setShowNameEntry] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [uploaderName, setUploaderName] = useState("");
+  const [identityChoice, setIdentityChoice] = useState(null);
+
+  const connectUrl = `${API_BASE}/auth/google/start?eventId=${eventId}`;
+  const choiceKey = `wedding_snaps_identity_choice_${eventId}`;
+  const nameKey = "wedding_snaps_uploader_name";
+
+  const publicUrl = eventId
+    ? (() => {
+        const url = new URL(window.location.pathname, window.location.origin);
+        url.searchParams.set("e", eventId);
+        return url.toString();
+      })()
+    : "";
+
+  /* ---------- Fetch config ---------- */
+  useEffect(() => {
+    fetch(`${API_BASE}/events/${eventId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) {
+          setUploadLimit(d.uploadLimit);
+          setIsDriveConnected(d.isDriveConnected);
+          setIsOwnerConnected(!!d.isOwnerConnected);
+        }
+      });
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const choice = localStorage.getItem(choiceKey);
+    const storedName = localStorage.getItem(nameKey);
+    if (choice) setIdentityChoice(choice);
+    if (storedName) setUploaderName(storedName);
+    if (choice === "anonymous" && !storedName) {
+      const guestName = buildGuestName();
+      localStorage.setItem(nameKey, guestName);
+      setUploaderName(guestName);
+    }
+    if (!choice) setShowIdentityModal(true);
+  }, [eventId, choiceKey, nameKey]);
+
+  const updateUploaderNameRemote = async (name) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/events/${eventId}/uploader-name`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Device-Id": getDeviceId(),
+          },
+          body: JSON.stringify({ name }),
+        }
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Update failed");
+    } catch (err) {
+      console.warn("Update uploader name failed:", err);
+    }
+  };
+
+  const chooseAnonymous = () => {
+    const guestName = buildGuestName();
+    localStorage.setItem(nameKey, guestName);
+    setUploaderName(guestName);
+    localStorage.setItem(choiceKey, "anonymous");
+    setIdentityChoice("anonymous");
+    updateUploaderNameRemote(guestName);
+    setShowIdentityModal(false);
+    setShowNameEntry(false);
+  };
+
+  const setNamedIdentity = (rawName) => {
+    const nextName = rawName.trim().slice(0, 40);
+    if (!nextName) return false;
+    localStorage.setItem(nameKey, nextName);
+    localStorage.setItem(choiceKey, "named");
+    setUploaderName(nextName);
+    setIdentityChoice("named");
+    updateUploaderNameRemote(nextName);
+    setShowIdentityModal(false);
+    setShowNameEntry(false);
+    return true;
+  };
+
+  const openNameEntry = () => {
+    setShowNameEntry(true);
+  };
+
+  const saveName = () => {
+    setNamedIdentity(nameInput);
+  };
+
+  return (
+    <div className="gallery">
+      {showIdentityModal && (
+        <div className="identity-modal">
+          <div className="identity-card">
+            {!isOwnerConnected ? (
+              <>
+                <h3 className="identity-title">
+                  Connect Google Drive to start collecting guest photos.
+                </h3>
+                <div className="identity-actions">
+                  <a href={connectUrl} className="pill-btn">
+                    Connect Google Drive
+                  </a>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="identity-title">
+                  Want to add your name to your uploads?
+                </h3>
+
+                {!showNameEntry && (
+                  <div className="identity-actions">
+                    <button
+                      className="pill-btn"
+                      onClick={openNameEntry}
+                      type="button"
+                    >
+                      Add my name
+                    </button>
+                    <button
+                      className="pill-btn secondary"
+                      onClick={chooseAnonymous}
+                      type="button"
+                    >
+                      Continue anonymously
+                    </button>
+                  </div>
+                )}
+
+                {showNameEntry && (
+                  <div className="identity-entry">
+                    <input
+                      type="text"
+                      placeholder="Your name"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                    />
+                    <div className="identity-actions">
+                      <button
+                        className="pill-btn"
+                        onClick={saveName}
+                        type="button"
+                      >
+                        Continue
+                      </button>
+                      <button
+                        className="pill-btn secondary"
+                        onClick={chooseAnonymous}
+                        type="button"
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="tabs">
+        <button
+          className={`tab ${tab === "personal" ? "active" : ""}`}
+          onClick={() => setTab("personal")}
+        >
+          MY SNAPS
+          {tab === "personal" && <span className="tab-underline" />}
+        </button>
+
+        <button
+          className={`tab ${tab === "stream" ? "active" : ""}`}
+          onClick={() => setTab("stream")}
+        >
+          STREAM
+          {tab === "stream" && <span className="tab-underline" />}
+        </button>
+
+        <button
+          className={`tab ${tab === "info" ? "active" : ""}`}
+          onClick={() => setTab("info")}
+        >
+          INFO
+          {tab === "info" && <span className="tab-underline" />}
+        </button>
+      </div>
+      {!isDriveConnected && (
+        <div className="connect">
+          <a href={connectUrl} className="pill-btn">
+            Connect Google Drive
+          </a>
+        </div>
+      )}
+
+      {isDriveConnected && (
+        <div
+          className={`tab-panel ${tab === "personal" ? "" : "hidden"}`}
+          aria-hidden={tab !== "personal"}
+        >
+          <PersonalTab
+            eventId={eventId}
+            uploadLimit={uploadLimit}
+            uploaderName={uploaderName}
+            isActive={tab === "personal"}
+          />
+        </div>
+      )}
+
+      <div
+        className={`tab-panel ${tab === "stream" ? "" : "hidden"}`}
+        aria-hidden={tab !== "stream"}
+      >
+        <StreamTab eventId={eventId} isActive={tab === "stream"} />
+      </div>
+
+      <div
+        className={`tab-panel ${tab === "info" ? "" : "hidden"}`}
+        aria-hidden={tab !== "info"}
+      >
+        <InfoTab
+          eventId={eventId}
+          publicUrl={publicUrl}
+          uploaderName={uploaderName}
+          identityChoice={identityChoice}
+          onSaveName={setNamedIdentity}
+          onGoAnonymous={chooseAnonymous}
+        />
+      </div>
+    </div>
+  );
+}
