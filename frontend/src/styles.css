@@ -609,7 +609,7 @@ html {
 
 .hero-title {
   font-family: "Cormorant Garamond", serif;
-  font-size: clamp(30px, 4vw, 52px);
+  font-size: clamp(50px, 4vw, 52px);
   margin: 0 0 12px;
   color: var(--ink);
 }
