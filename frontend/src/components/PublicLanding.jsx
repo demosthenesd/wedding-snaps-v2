@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { API_BASE } from "../config";
 
+const ADMIN_CODE_STORAGE_KEY = "wedding_snaps_admin_code";
+
 export default function PublicLanding() {
   const faqs = useMemo(
     () => [
@@ -61,7 +63,7 @@ export default function PublicLanding() {
         return;
       }
       setAdminError("");
-      localStorage.setItem("wedding_snaps_admin_authed", "true");
+      sessionStorage.setItem(ADMIN_CODE_STORAGE_KEY, next);
       window.location.assign("/admin");
     } catch (err) {
       console.error(err);

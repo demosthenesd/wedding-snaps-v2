@@ -2,22 +2,30 @@ import { useState } from "react";
 import QrModal from "./QrModal";
 import { API_BASE } from "../config";
 
+const ADMIN_CODE_STORAGE_KEY = "wedding_snaps_admin_code";
+
 export default function Landing() {
   const [name, setName] = useState("");
   const [driveId, setDriveId] = useState("");
   const [uploadLimitInput, setUploadLimitInput] = useState("4");
-  const [adminCode, setAdminCode] = useState("");
+  const [adminCode, setAdminCode] = useState(
+    () => sessionStorage.getItem(ADMIN_CODE_STORAGE_KEY) || "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [publicUrl, setPublicUrl] = useState(null);
   const [connectUrl, setConnectUrl] = useState(null);
   const [gateOpen, setGateOpen] = useState(
-    () => localStorage.getItem("wedding_snaps_admin_authed") !== "true",
+    () => !sessionStorage.getItem(ADMIN_CODE_STORAGE_KEY),
   );
   const [gateCode, setGateCode] = useState("");
   const [gateError, setGateError] = useState("");
 
   const closeGate = () => {
+    if (!adminCode.trim()) {
+      setGateError("Passcode required to create an event.");
+      return;
+    }
     setGateCode("");
     setGateError("");
     setGateOpen(false);
@@ -40,8 +48,8 @@ export default function Landing() {
         return;
       }
       setGateError("");
-      localStorage.setItem("wedding_snaps_admin_authed", "true");
       setAdminCode(next);
+      sessionStorage.setItem(ADMIN_CODE_STORAGE_KEY, next);
       setGateCode("");
       setGateOpen(false);
     } catch (err) {
@@ -63,6 +71,7 @@ export default function Landing() {
     try {
       if (!adminCode.trim()) {
         setError("Passcode required");
+        setGateOpen(true);
         return;
       }
       const res = await fetch(`${API_BASE}/events`, {
