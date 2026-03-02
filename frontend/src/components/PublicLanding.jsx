@@ -74,13 +74,6 @@ export default function PublicLanding() {
     }
   };
 
-  const dismissSuccess = () => {
-    setShowContactSuccess(false);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("success");
-    window.history.replaceState({}, "", url.toString());
-  };
-
   const handleContactSubmit = async (e) => {
     e.preventDefault();
     if (isContactSubmitting) return;
@@ -309,50 +302,48 @@ export default function PublicLanding() {
                 <h3>Contact us</h3>
                 <p>Tell us about your date and guest count. We reply fast.</p>
               </div>
-              <form
-                className="panel-card contact-form"
-                name="contact"
-                method="POST"
-                data-netlify="true"
-                data-netlify-honeypot="bot-field"
-                action="/?success=1#contact"
-                onSubmit={handleContactSubmit}
-              >
-                <input type="hidden" name="form-name" value="contact" />
-                <p style={{ display: "none" }}>
-                  <label>
-                    Dont fill this out if you're human:
-                    <input name="bot-field" />
-                  </label>
-                </p>
-                <label className="landing-field">
-                  <span>Name</span>
-                  <input type="text" name="name" required />
-                </label>
-                <label className="landing-field">
-                  <span>Email</span>
-                  <input type="email" name="email" required />
-                </label>
-                <label className="landing-field">
-                  <span>Message</span>
-                  <textarea name="message" rows={5} required />
-                </label>
-                <button
-                  className="pill-btn landing-primary"
-                  type="submit"
-                  disabled={isContactSubmitting}
+              {!showContactSuccess ? (
+                <form
+                  className="panel-card contact-form"
+                  name="contact"
+                  method="POST"
+                  data-netlify="true"
+                  data-netlify-honeypot="bot-field"
+                  action="/?success=1#contact"
+                  onSubmit={handleContactSubmit}
                 >
-                  {isContactSubmitting ? "Sending..." : "Contact us"}
-                </button>
-              </form>
-              {showContactSuccess && (
-                <div className="contact-success" role="status">
-                  <div>
-                    Thanks! Your message was sent. We will get back to you soon.
-                  </div>
-                  <button type="button" onClick={dismissSuccess}>
-                    Close
+                  <input type="hidden" name="form-name" value="contact" />
+                  <p style={{ display: "none" }}>
+                    <label>
+                      Dont fill this out if you're human:
+                      <input name="bot-field" />
+                    </label>
+                  </p>
+                  <label className="landing-field">
+                    <span>Name</span>
+                    <input type="text" name="name" required />
+                  </label>
+                  <label className="landing-field">
+                    <span>Email</span>
+                    <input type="email" name="email" required />
+                  </label>
+                  <label className="landing-field">
+                    <span>Message</span>
+                    <textarea name="message" rows={5} required />
+                  </label>
+                  <button
+                    className="pill-btn landing-primary"
+                    type="submit"
+                    disabled={isContactSubmitting}
+                  >
+                    {isContactSubmitting ? "Sending..." : "Contact us"}
                   </button>
+                </form>
+              ) : (
+                <div className="contact-success panel-card" role="status">
+                  Thank you for contacting Candid Snaps. One of our team members
+                  will be in touch shortly. Thanks! Your message was sent. We
+                  will get back to you soon.
                 </div>
               )}
             </div>
