@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { API_BASE } from "../config";
+import { useToast } from "./Toast";
 
 const ADMIN_CODE_STORAGE_KEY = "wedding_snaps_admin_code";
 
 export default function PublicLanding() {
+  const { addToast } = useToast();
   const faqs = useMemo(
     () => [
       {
@@ -30,6 +32,7 @@ export default function PublicLanding() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminError, setAdminError] = useState("");
   const [adminCode, setAdminCode] = useState("");
+  const [isContactSubmitting, setIsContactSubmitting] = useState(false);
   const [showContactSuccess, setShowContactSuccess] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("success") === "1";
@@ -78,10 +81,43 @@ export default function PublicLanding() {
     window.history.replaceState({}, "", url.toString());
   };
 
-  const handleContactSubmit = (e) => {
-    if (window.location.hostname === "localhost") {
-      e.preventDefault();
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    if (isContactSubmitting) return;
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    try {
+      setIsContactSubmitting(true);
+
+      if (window.location.hostname !== "localhost") {
+        const encoded = new URLSearchParams();
+        for (const [key, value] of formData.entries()) {
+          encoded.append(key, String(value));
+        }
+        const res = await fetch("/", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: encoded.toString(),
+        });
+        if (!res.ok) {
+          throw new Error(`Form submit failed: ${res.status}`);
+        }
+      }
+
       setShowContactSuccess(true);
+      addToast("Message sent. We will get back to you soon.", {
+        variant: "success",
+      });
+      form.reset();
+    } catch (err) {
+      console.error(err);
+      addToast("Unable to send message right now. Please try again.", {
+        variant: "error",
+      });
+    } finally {
+      setIsContactSubmitting(false);
     }
   };
 
@@ -301,8 +337,12 @@ export default function PublicLanding() {
                   <span>Message</span>
                   <textarea name="message" rows={5} required />
                 </label>
-                <button className="pill-btn landing-primary" type="submit">
-                  Contact us
+                <button
+                  className="pill-btn landing-primary"
+                  type="submit"
+                  disabled={isContactSubmitting}
+                >
+                  {isContactSubmitting ? "Sending..." : "Contact us"}
                 </button>
               </form>
               {showContactSuccess && (
