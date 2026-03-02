@@ -5,7 +5,7 @@ import { API_BASE } from "../config";
 export default function Landing() {
   const [name, setName] = useState("");
   const [driveId, setDriveId] = useState("");
-  const [uploadLimit, setUploadLimit] = useState(4);
+  const [uploadLimitInput, setUploadLimitInput] = useState("4");
   const [adminCode, setAdminCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -50,6 +50,12 @@ export default function Landing() {
     }
   };
 
+  const normalizeUploadLimit = (value) => {
+    const raw = Number(value);
+    if (!Number.isFinite(raw)) return 4;
+    return Math.min(10, Math.max(4, Math.trunc(raw)));
+  };
+
   const createEvent = async () => {
     setBusy(true);
     setError("");
@@ -68,7 +74,7 @@ export default function Landing() {
         body: JSON.stringify({
           name,
           driveFolderId: driveId,
-          uploadLimit,
+          uploadLimit: normalizeUploadLimit(uploadLimitInput),
         }),
       });
 
@@ -126,12 +132,11 @@ export default function Landing() {
                 min={4}
                 max={10}
                 step={1}
-                value={uploadLimit}
-                onChange={(e) => {
-                  const raw = Number(e.target.value);
-                  const next = Number.isFinite(raw) ? raw : 4;
-                  setUploadLimit(Math.min(10, Math.max(4, next)));
-                }}
+                value={uploadLimitInput}
+                onChange={(e) => setUploadLimitInput(e.target.value)}
+                onBlur={() =>
+                  setUploadLimitInput(String(normalizeUploadLimit(uploadLimitInput)))
+                }
               />
             </label>
 
