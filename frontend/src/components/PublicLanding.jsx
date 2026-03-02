@@ -342,8 +342,7 @@ export default function PublicLanding() {
               ) : (
                 <div className="contact-success panel-card" role="status">
                   Thank you for contacting Candid Snaps. One of our team members
-                  will be in touch shortly. Thanks! Your message was sent. We
-                  will get back to you soon.
+                  will be in touch soon.
                 </div>
               )}
             </div>
