@@ -5,12 +5,38 @@ import {
   driveForRefreshToken,
   driveForServiceAccount,
   hasServiceAccount,
+  isGoogleAuthError,
+  validateRefreshToken,
 } from "../services/google.js";
 import { apiBaseFromReq } from "../utils/apiBase.js";
 import { API_PUBLIC_BASE_URL, CORS_ORIGINS, PUBLIC_BASE_URL } from "../config.js";
 import { getDeviceHash } from "../utils/device.js";
 
 const TEST_DRIVE_FOLDER_ID = "1b9PoSR_UxREh5QuCOwR2i7hm3V5Y0XMt";
+
+async function clearInvalidRefreshToken(ev) {
+  if (!ev?.googleRefreshToken) return;
+  ev.googleRefreshToken = "";
+  await ev.save();
+}
+
+async function hasHealthyOwnerConnection(ev) {
+  if (!ev?.googleRefreshToken) return false;
+
+  const isValid = await validateRefreshToken(ev.googleRefreshToken);
+  if (isValid) return true;
+
+  await clearInvalidRefreshToken(ev);
+  return false;
+}
+
+function driveReconnectPayload(ev, error = "Google Drive connection expired. Please reconnect Google Drive.") {
+  return {
+    ok: false,
+    error,
+    connectUrl: `${API_PUBLIC_BASE_URL}/auth/google/start?eventId=${ev._id.toString()}`,
+  };
+}
 
 function formatUpload(upload, base, eventId) {
   return {
@@ -66,14 +92,23 @@ export async function getEventConfig(req, res) {
   const ev = await Event.findById(req.params.eventId);
   if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
 
+  let isOwnerConnected = !!ev.googleRefreshToken;
+  if (ev.googleRefreshToken) {
+    try {
+      isOwnerConnected = await hasHealthyOwnerConnection(ev);
+    } catch (err) {
+      console.warn("Drive health check failed:", err?.message || err);
+    }
+  }
+
   res.json({
     ok: true,
     name: ev.name,
     uploadLimit: ev.uploadLimit,
     windowHours: ev.windowHours,
-    isDriveConnected: !!ev.googleRefreshToken || hasServiceAccount,
+    isDriveConnected: isOwnerConnected || hasServiceAccount,
     isServiceAccountActive: hasServiceAccount,
-    isOwnerConnected: !!ev.googleRefreshToken,
+    isOwnerConnected,
   });
 }
 
@@ -136,6 +171,11 @@ export async function streamFile(req, res) {
 
     r.data.pipe(res);
   } catch (err) {
+    if (ev.googleRefreshToken && isGoogleAuthError(err)) {
+      await clearInvalidRefreshToken(ev);
+      return res.status(401).send("Google Drive connection expired. Please reconnect.");
+    }
+
     console.error("Drive fetch error:", err?.message || err);
     res.status(500).send("Failed to fetch file");
   }
@@ -145,12 +185,20 @@ export async function uploadFile(req, res) {
   const ev = await Event.findById(req.params.eventId);
   if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
 
+  if (ev.googleRefreshToken) {
+    const isOwnerConnected = await hasHealthyOwnerConnection(ev);
+    if (!isOwnerConnected && !hasServiceAccount) {
+      return res.status(401).json(driveReconnectPayload(ev));
+    }
+  }
+
   if (!ev.googleRefreshToken && !hasServiceAccount) {
-    return res.status(400).json({
-      ok: false,
-      error: "Drive not connected for this event yet. Owner must connect Google Drive first.",
-      connectUrl: `${API_PUBLIC_BASE_URL}/auth/google/start?eventId=${ev._id.toString()}`,
-    });
+    return res.status(400).json(
+      driveReconnectPayload(
+        ev,
+        "Drive not connected for this event yet. Owner must connect Google Drive first."
+      )
+    );
   }
 
   const file = req.file;
@@ -181,14 +229,23 @@ export async function uploadFile(req, res) {
     : driveForServiceAccount();
   const stream = Readable.from(file.buffer);
 
-  const driveResp = await drive.files.create({
-    requestBody: {
-      name: `wedding-snap-${Date.now()}.jpg`,
-      parents: [ev.driveFolderId],
-    },
-    media: { mimeType: file.mimetype, body: stream },
-    fields: "id",
-  });
+  let driveResp;
+  try {
+    driveResp = await drive.files.create({
+      requestBody: {
+        name: `wedding-snap-${Date.now()}.jpg`,
+        parents: [ev.driveFolderId],
+      },
+      media: { mimeType: file.mimetype, body: stream },
+      fields: "id",
+    });
+  } catch (err) {
+    if (ev.googleRefreshToken && isGoogleAuthError(err)) {
+      await clearInvalidRefreshToken(ev);
+      return res.status(401).json(driveReconnectPayload(ev));
+    }
+    throw err;
+  }
 
   const driveFileId = driveResp?.data?.id;
 
@@ -256,6 +313,11 @@ export async function deleteUpload(req, res) {
 
     res.json({ ok: true });
   } catch (err) {
+    if (ev.googleRefreshToken && isGoogleAuthError(err)) {
+      await clearInvalidRefreshToken(ev);
+      return res.status(401).json(driveReconnectPayload(ev));
+    }
+
     console.error("Delete upload failed:", err);
     res.status(500).json({ ok: false, error: "Failed to delete upload" });
   }

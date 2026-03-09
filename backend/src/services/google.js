@@ -54,3 +54,42 @@ export function driveForRefreshToken(refreshToken) {
   auth.setCredentials({ refresh_token: refreshToken });
   return google.drive({ version: "v3", auth });
 }
+
+export async function validateRefreshToken(refreshToken) {
+  if (!refreshToken) return false;
+
+  try {
+    const drive = driveForRefreshToken(refreshToken);
+    await drive.files.list({
+      pageSize: 1,
+      fields: "files(id)",
+    });
+    return true;
+  } catch (err) {
+    if (isGoogleAuthError(err)) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+export function isGoogleAuthError(err) {
+  const status = err?.status ?? err?.code ?? err?.response?.status;
+  const message = String(err?.message || "").toLowerCase();
+  const reason = String(
+    err?.errors?.[0]?.reason ||
+      err?.response?.data?.error ||
+      err?.response?.data?.error_description ||
+      ""
+  ).toLowerCase();
+
+  return (
+    status === 401 ||
+    status === 403 ||
+    message.includes("invalid_grant") ||
+    message.includes("invalid credentials") ||
+    message.includes("login required") ||
+    reason.includes("invalid_grant") ||
+    reason.includes("auth")
+  );
+}
